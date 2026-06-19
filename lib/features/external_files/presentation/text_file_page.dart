@@ -2,8 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/design/app_breakpoints.dart';
+import '../../../core/design/app_colors.dart';
+import '../../../core/design/app_spacing.dart';
+import '../../../core/design/app_typography.dart';
 import '../../../core/files/external_file.dart';
 import '../../../core/files/external_file_service.dart';
+import '../../../core/widgets/app_badge.dart';
+import '../../../core/widgets/app_card.dart';
 import '../../snippets/models/snippet.dart';
 import '../../snippets/provider/snippets_provider.dart';
 
@@ -201,11 +207,12 @@ class _TextFilePageState extends ConsumerState<TextFilePage> {
             ),
             body: LayoutBuilder(
               builder: (context, constraints) {
-                final isWide = constraints.maxWidth >= 900;
+                final isWide = constraints.maxWidth >= AppBreakpoints.medium;
                 final info = _FileInfoPanel(
                   document: widget.document,
                   sizeLabel: '$sizeKb KB',
                   canOverwrite: widget.document.canOverwriteOriginal,
+                  hasUnsavedChanges: _hasUnsavedChanges,
                 );
                 final editor = _EditorPanel(
                   controller: _contentController,
@@ -214,19 +221,26 @@ class _TextFilePageState extends ConsumerState<TextFilePage> {
                   onSaveSnippet: _saveAsSnippet,
                 );
                 if (isWide) {
-                  return Row(
-                    children: [
-                      SizedBox(width: 280, child: info),
-                      const VerticalDivider(width: 1),
-                      Expanded(child: editor),
-                    ],
+                  return Padding(
+                    padding: AppSpacing.page(context),
+                    child: Row(
+                      children: [
+                        SizedBox(width: 330, child: info),
+                        const SizedBox(width: AppSpacing.md),
+                        Expanded(child: editor),
+                      ],
+                    ),
                   );
                 }
-                return Column(
-                  children: [
-                    info,
-                    Expanded(child: editor),
-                  ],
+                return Padding(
+                  padding: AppSpacing.page(context),
+                  child: Column(
+                    children: [
+                      SizedBox(height: 220, child: info),
+                      const SizedBox(height: AppSpacing.md),
+                      Expanded(child: editor),
+                    ],
+                  ),
                 );
               },
             ),
@@ -241,46 +255,98 @@ class _FileInfoPanel extends StatelessWidget {
   final ExternalFileDocument document;
   final String sizeLabel;
   final bool canOverwrite;
+  final bool hasUnsavedChanges;
 
   const _FileInfoPanel({
     required this.document,
     required this.sizeLabel,
     required this.canOverwrite,
+    required this.hasUnsavedChanges,
   });
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      shrinkWrap: true,
-      padding: const EdgeInsets.all(12),
-      children: [
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: const Icon(Icons.description),
-          title: Text(document.name),
-          subtitle: Text('${document.extension.toUpperCase()} - $sizeLabel'),
-        ),
-        SelectableText(
-          document.sourceLabel,
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
-        const SizedBox(height: 12),
-        if (document.isEnvLike)
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(12),
+    return AppCard(
+      child: ListView(
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  Icons.description,
+                  color: Theme.of(context).colorScheme.onPrimaryContainer,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      document.name,
+                      style: Theme.of(context).textTheme.titleMedium,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      '${document.extension.toUpperCase()} - $sizeLabel',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Wrap(
+            spacing: AppSpacing.xs,
+            runSpacing: AppSpacing.xs,
+            children: [
+              AppBadge(
+                label: hasUnsavedChanges ? 'Unsaved' : 'Saved',
+                icon: hasUnsavedChanges ? Icons.edit : Icons.check,
+                color:
+                    hasUnsavedChanges ? AppColors.warning : AppColors.success,
+                backgroundColor: hasUnsavedChanges
+                    ? AppColors.warningContainer(context)
+                    : AppColors.successContainer(context),
+              ),
+              AppBadge(
+                label: canOverwrite ? 'Original writable' : 'Read copy',
+                icon: canOverwrite ? Icons.save : Icons.copy,
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Text('Source', style: Theme.of(context).textTheme.labelLarge),
+          SelectableText(
+            document.sourceLabel,
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          if (document.isEnvLike)
+            AppCard(
+              filled: false,
               child: Text(
                 '.env files often contain secrets. DevDesk keeps this local; avoid copying or saving secrets into shared locations.',
                 style: TextStyle(color: Theme.of(context).colorScheme.error),
               ),
             ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            canOverwrite
+                ? 'Save writes to the original file after confirmation. Save As exports a copy.'
+                : 'This platform exposes a safe read copy only. Use Save As to export changes.',
           ),
-        Text(
-          canOverwrite
-              ? 'Save writes to the original file after confirmation. Save As exports a copy.'
-              : 'This platform exposes a safe read copy only. Use Save As to export changes.',
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -300,13 +366,13 @@ class _EditorPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(12),
+    return AppCard(
+      padding: const EdgeInsets.all(AppSpacing.md),
       child: Column(
         children: [
           Wrap(
-            spacing: 8,
-            runSpacing: 8,
+            spacing: AppSpacing.xs,
+            runSpacing: AppSpacing.xs,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               SizedBox(
@@ -315,7 +381,6 @@ class _EditorPanel extends StatelessWidget {
                   controller: searchController,
                   decoration: InputDecoration(
                     labelText: 'Search in file',
-                    border: const OutlineInputBorder(),
                     suffixText: searchController.text.isEmpty
                         ? null
                         : '$matchCount matches',
@@ -329,18 +394,19 @@ class _EditorPanel extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.md),
           Expanded(
             child: TextField(
               controller: controller,
               expands: true,
               minLines: null,
               maxLines: null,
+              style: AppTypography.mono(context),
               keyboardType: TextInputType.multiline,
-              decoration: const InputDecoration(
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
                 alignLabelWithHint: true,
                 labelText: 'File content',
+                fillColor: AppColors.codeBackground(context),
               ),
             ),
           ),

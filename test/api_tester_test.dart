@@ -28,6 +28,11 @@ void main() {
 
   testWidgets('API tester shows mocked response UI',
       (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1366, 768);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     final client = MockClient((request) async {
       return http.Response('{"ok":true}', 200, headers: {
         'content-type': 'application/json',
@@ -45,8 +50,11 @@ void main() {
       'https://api.example.com',
     );
     await tester.tap(find.text('Send'));
-    await tester.pump(const Duration(milliseconds: 100));
-    await tester.pump(const Duration(milliseconds: 100));
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+      if (find.text('Status 200').evaluate().isNotEmpty) break;
+    }
+    await tester.pump();
 
     expect(find.text('Status 200'), findsOneWidget);
     expect(find.textContaining('"ok": true'), findsOneWidget);

@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/design/app_breakpoints.dart';
+import '../../../core/design/app_spacing.dart';
+import '../../../core/widgets/app_badge.dart';
+import '../../../core/widgets/app_card.dart';
+import '../../../core/widgets/app_result_panel.dart';
 import '../provider/timestamp_provider.dart';
 
 /// Page for converting Unix timestamps to dates and vice versa.
@@ -36,46 +41,43 @@ class _TimestampPageState extends ConsumerState<TimestampPage> {
     final dateTime = ref.watch(dateTimeProvider);
     return Scaffold(
       appBar: AppBar(title: const Text('Timestamp Converter')),
-      body: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Unix Timestamp'),
-            TextField(
-              controller: _inputController,
-              decoration: const InputDecoration(
-                hintText: 'Enter Unix seconds or milliseconds',
-                border: OutlineInputBorder(),
-              ),
-              keyboardType: TextInputType.number,
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              children: [
-                ElevatedButton(
-                  onPressed: () => convertFromTimestamp(ref),
-                  child: const Text('To Date'),
-                ),
-                ElevatedButton(
-                  onPressed: () => _pickDateTime(context),
-                  child: const Text('Pick Date & Time'),
-                ),
-                ElevatedButton(
-                  onPressed: () => convertToTimestamp(ref),
-                  child: const Text('To Unix'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            if (dateTime != null) Text('Selected: $dateTime'),
-            if (result != null) ...[
-              const SizedBox(height: 8),
-              SelectableText(result),
-            ],
-          ],
-        ),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final isWide = constraints.maxWidth >= AppBreakpoints.medium;
+          final input = _TimestampInputCard(
+            controller: _inputController,
+            selectedDateTime: dateTime,
+            onToDate: () => convertFromTimestamp(ref),
+            onPickDateTime: () => _pickDateTime(context),
+            onToUnix: () => convertToTimestamp(ref),
+          );
+          final output = AppResultPanel(
+            title: 'UTC / Local output',
+            text: result,
+            emptyTitle: 'No conversion yet',
+            emptyMessage:
+                'Enter a Unix timestamp or pick a date to see converted values.',
+            monospace: false,
+          );
+          return Padding(
+            padding: AppSpacing.page(context),
+            child: isWide
+                ? Row(
+                    children: [
+                      SizedBox(width: 420, child: input),
+                      const SizedBox(width: AppSpacing.md),
+                      Expanded(child: output),
+                    ],
+                  )
+                : Column(
+                    children: [
+                      Expanded(child: input),
+                      const SizedBox(height: AppSpacing.md),
+                      Expanded(child: output),
+                    ],
+                  ),
+          );
+        },
       ),
     );
   }
@@ -102,5 +104,89 @@ class _TimestampPageState extends ConsumerState<TimestampPage> {
       time?.minute ?? 0,
     );
     ref.read(dateTimeProvider.notifier).state = combined;
+  }
+}
+
+class _TimestampInputCard extends StatelessWidget {
+  final TextEditingController controller;
+  final DateTime? selectedDateTime;
+  final VoidCallback onToDate;
+  final VoidCallback onPickDateTime;
+  final VoidCallback onToUnix;
+
+  const _TimestampInputCard({
+    required this.controller,
+    required this.selectedDateTime,
+    required this.onToDate,
+    required this.onPickDateTime,
+    required this.onToUnix,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AppCard(
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Timestamp input',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            TextField(
+              controller: controller,
+              decoration: const InputDecoration(
+                hintText: 'Enter Unix seconds or milliseconds',
+                prefixIcon: Icon(Icons.numbers),
+              ),
+              keyboardType: TextInputType.number,
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Wrap(
+              spacing: AppSpacing.xs,
+              runSpacing: AppSpacing.xs,
+              children: const [
+                AppBadge(label: 'seconds', icon: Icons.timer),
+                AppBadge(label: 'milliseconds', icon: Icons.timer_outlined),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            Text('Date picker', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: AppSpacing.xs),
+            AppCard(
+              filled: false,
+              child: Text(
+                selectedDateTime == null
+                    ? 'No date selected yet.'
+                    : 'Selected: $selectedDateTime',
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Wrap(
+              spacing: AppSpacing.xs,
+              runSpacing: AppSpacing.xs,
+              children: [
+                FilledButton.icon(
+                  onPressed: onToDate,
+                  icon: const Icon(Icons.event),
+                  label: const Text('To Date'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: onPickDateTime,
+                  icon: const Icon(Icons.calendar_month),
+                  label: const Text('Pick Date & Time'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: onToUnix,
+                  icon: const Icon(Icons.tag),
+                  label: const Text('To Unix'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

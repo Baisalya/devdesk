@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/design/app_breakpoints.dart';
+import '../../../core/design/app_spacing.dart';
+import '../../../core/widgets/app_card.dart';
+import '../../../core/widgets/app_result_panel.dart';
 import '../provider/url_provider.dart';
 
 /// Page for URL encoding and decoding.
@@ -40,66 +43,102 @@ class _UrlPageState extends ConsumerState<UrlPage> {
     final output = ref.watch(urlOutputProvider);
     return Scaffold(
       appBar: AppBar(title: const Text('URL Encoder/Decoder')),
-      body: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Input'),
-            const SizedBox(height: 4),
-            TextField(
-              controller: _inputController,
-              minLines: 3,
-              maxLines: 8,
-              decoration: const InputDecoration(border: OutlineInputBorder()),
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              children: [
-                ElevatedButton(
-                  onPressed: () => encodeUrl(ref),
-                  child: const Text('Encode'),
-                ),
-                ElevatedButton(
-                  onPressed: () => decodeUrl(ref),
-                  child: const Text('Decode'),
-                ),
-                OutlinedButton(onPressed: _clear, child: const Text('Clear')),
-              ],
-            ),
-            const SizedBox(height: 12),
-            const Text('Output'),
-            const SizedBox(height: 4),
-            Expanded(
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  border: Border.all(color: Theme.of(context).dividerColor),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: output == null
-                    ? const Text('Result will appear here')
-                    : SingleChildScrollView(child: SelectableText(output)),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final isWide = constraints.maxWidth >= AppBreakpoints.medium;
+          final input = _UrlInputPanel(
+            controller: _inputController,
+            onEncode: () => encodeUrl(ref),
+            onDecode: () => decodeUrl(ref),
+            onClear: _clear,
+          );
+          final result = AppResultPanel(
+            title: 'Output',
+            text: output,
+            emptyTitle: 'Result will appear here',
+            emptyMessage: 'Encode or decode URL text to generate output.',
+          );
+          return Padding(
+            padding: AppSpacing.page(context),
+            child: isWide
+                ? Row(
+                    children: [
+                      Expanded(child: input),
+                      const SizedBox(width: AppSpacing.md),
+                      Expanded(child: result),
+                    ],
+                  )
+                : Column(
+                    children: [
+                      Expanded(child: input),
+                      const SizedBox(height: AppSpacing.md),
+                      Expanded(child: result),
+                    ],
+                  ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _UrlInputPanel extends StatelessWidget {
+  final TextEditingController controller;
+  final VoidCallback onEncode;
+  final VoidCallback onDecode;
+  final VoidCallback onClear;
+
+  const _UrlInputPanel({
+    required this.controller,
+    required this.onEncode,
+    required this.onDecode,
+    required this.onClear,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AppCard(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('Input', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: AppSpacing.sm),
+          Expanded(
+            child: TextField(
+              controller: controller,
+              expands: true,
+              minLines: null,
+              maxLines: null,
+              decoration: const InputDecoration(
+                hintText: 'Paste URL or encoded text here',
+                alignLabelWithHint: true,
               ),
             ),
-            const SizedBox(height: 8),
-            ElevatedButton.icon(
-              onPressed: output != null
-                  ? () async {
-                      await Clipboard.setData(ClipboardData(text: output));
-                      if (!context.mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Copied to clipboard')),
-                      );
-                    }
-                  : null,
-              icon: const Icon(Icons.copy),
-              label: const Text('Copy'),
-            ),
-          ],
-        ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Wrap(
+            spacing: AppSpacing.xs,
+            runSpacing: AppSpacing.xs,
+            children: [
+              FilledButton.icon(
+                onPressed: onEncode,
+                icon: const Icon(Icons.link),
+                label: const Text('Encode'),
+              ),
+              OutlinedButton.icon(
+                onPressed: onDecode,
+                icon: const Icon(Icons.link_off),
+                label: const Text('Decode'),
+              ),
+              OutlinedButton.icon(
+                onPressed: onClear,
+                icon: const Icon(Icons.backspace_outlined),
+                label: const Text('Clear'),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

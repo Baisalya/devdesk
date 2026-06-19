@@ -3,6 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/design/app_breakpoints.dart';
+import '../../../core/design/app_colors.dart';
+import '../../../core/design/app_spacing.dart';
+import '../../../core/design/app_typography.dart';
+import '../../../core/widgets/app_badge.dart';
+import '../../../core/widgets/app_card.dart';
+import '../../../core/widgets/app_empty_state.dart';
 import '../provider/diff_provider.dart';
 
 /// Page for comparing two text blocks.
@@ -46,113 +53,79 @@ class _DiffPageState extends ConsumerState<DiffPage> {
   @override
   Widget build(BuildContext context) {
     final diffs = ref.watch(diffResultProvider);
+    final summary = _diffStats(diffs);
     return Scaffold(
       appBar: AppBar(title: const Text('Diff Checker')),
-      body: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          children: [
-            Expanded(
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final left =
-                      _Editor(label: 'Text A', controller: _leftController);
-                  final right =
-                      _Editor(label: 'Text B', controller: _rightController);
-                  if (constraints.maxWidth >= 720) {
-                    return Row(
-                      children: [
-                        Expanded(child: left),
-                        const SizedBox(width: 8),
-                        Expanded(child: right),
-                      ],
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final isWide = constraints.maxWidth >= AppBreakpoints.medium;
+          final left = _Editor(label: 'Text A', controller: _leftController);
+          final right = _Editor(label: 'Text B', controller: _rightController);
+          final result = _DiffResultPanel(
+            diffs: diffs,
+            summary: summary,
+            onCopySummary: diffs.isEmpty
+                ? null
+                : () async {
+                    await Clipboard.setData(
+                      ClipboardData(text: _summaryFromStats(summary)),
                     );
-                  }
-                  return Column(
-                    children: [
-                      Expanded(child: left),
-                      const SizedBox(height: 8),
-                      Expanded(child: right),
-                    ],
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Diff summary copied')),
+                    );
+                  },
+          );
+          return Padding(
+            padding: AppSpacing.page(context),
+            child: Column(
               children: [
-                ElevatedButton(
-                  onPressed: () => computeDiff(ref),
-                  child: const Text('Compare'),
+                Expanded(
+                  flex: isWide ? 5 : 6,
+                  child: isWide
+                      ? Row(
+                          children: [
+                            Expanded(child: left),
+                            const SizedBox(width: AppSpacing.md),
+                            Expanded(child: right),
+                          ],
+                        )
+                      : Column(
+                          children: [
+                            Expanded(child: left),
+                            const SizedBox(height: AppSpacing.md),
+                            Expanded(child: right),
+                          ],
+                        ),
                 ),
-                OutlinedButton(onPressed: _clear, child: const Text('Clear')),
-                OutlinedButton.icon(
-                  onPressed: diffs.isEmpty
-                      ? null
-                      : () async {
-                          await Clipboard.setData(
-                            ClipboardData(text: _summary(diffs)),
-                          );
-                          if (!context.mounted) return;
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Diff summary copied'),
-                            ),
-                          );
-                        },
-                  icon: const Icon(Icons.copy),
-                  label: const Text('Copy summary'),
+                const SizedBox(height: AppSpacing.md),
+                Wrap(
+                  spacing: AppSpacing.xs,
+                  runSpacing: AppSpacing.xs,
+                  children: [
+                    FilledButton.icon(
+                      onPressed: () => computeDiff(ref),
+                      icon: const Icon(Icons.compare_arrows),
+                      label: const Text('Compare'),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: _clear,
+                      icon: const Icon(Icons.backspace_outlined),
+                      label: const Text('Clear'),
+                    ),
+                  ],
                 ),
+                const SizedBox(height: AppSpacing.md),
+                Expanded(flex: isWide ? 4 : 5, child: result),
               ],
             ),
-            const SizedBox(height: 12),
-            Expanded(
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  border: Border.all(color: Theme.of(context).dividerColor),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: diffs.isEmpty
-                    ? const Text('Differences will appear here')
-                    : SingleChildScrollView(
-                        child: _buildDiffText(context, diffs),
-                      ),
-              ),
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
 
-  Widget _buildDiffText(BuildContext context, List<dmp.Diff> diffs) {
-    final spans = <TextSpan>[];
-    for (final diff in diffs) {
-      Color? bgColor;
-      if (diff.operation == dmp.DIFF_INSERT) {
-        bgColor = Colors.green.withValues(alpha: 0.2);
-      } else if (diff.operation == dmp.DIFF_DELETE) {
-        bgColor = Colors.red.withValues(alpha: 0.2);
-      }
-      spans.add(
-        TextSpan(
-          text: diff.text,
-          style: TextStyle(backgroundColor: bgColor),
-        ),
-      );
-    }
-    return RichText(
-      text: TextSpan(
-        style: DefaultTextStyle.of(context).style,
-        children: spans,
-      ),
-    );
-  }
-
-  String _summary(List<dmp.Diff> diffs) {
+  _DiffStats _diffStats(List<dmp.Diff> diffs) {
     final added = diffs
         .where((diff) => diff.operation == dmp.DIFF_INSERT)
         .fold<int>(0, (sum, diff) => sum + diff.text.length);
@@ -162,10 +135,34 @@ class _DiffPageState extends ConsumerState<DiffPage> {
     final unchanged = diffs
         .where((diff) => diff.operation == dmp.DIFF_EQUAL)
         .fold<int>(0, (sum, diff) => sum + diff.text.length);
-    return 'Added: $added characters\n'
-        'Removed: $removed characters\n'
-        'Unchanged: $unchanged characters';
+    return _DiffStats(
+      added: added,
+      removed: removed,
+      unchanged: unchanged,
+      changed: added + removed,
+    );
   }
+
+  String _summaryFromStats(_DiffStats stats) {
+    return 'Added: ${stats.added} characters\n'
+        'Removed: ${stats.removed} characters\n'
+        'Changed: ${stats.changed} characters\n'
+        'Unchanged: ${stats.unchanged} characters';
+  }
+}
+
+class _DiffStats {
+  final int added;
+  final int removed;
+  final int changed;
+  final int unchanged;
+
+  const _DiffStats({
+    required this.added,
+    required this.removed,
+    required this.changed,
+    required this.unchanged,
+  });
 }
 
 class _Editor extends StatelessWidget {
@@ -176,20 +173,125 @@ class _Editor extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label),
-        Expanded(
-          child: TextField(
-            controller: controller,
-            expands: true,
-            minLines: null,
-            maxLines: null,
-            decoration: const InputDecoration(border: OutlineInputBorder()),
+    return AppCard(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(label, style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: AppSpacing.sm),
+          Expanded(
+            child: TextField(
+              controller: controller,
+              expands: true,
+              minLines: null,
+              maxLines: null,
+              style: AppTypography.mono(context),
+              decoration: InputDecoration(
+                hintText: 'Paste $label here',
+                alignLabelWithHint: true,
+                fillColor: AppColors.codeBackground(context),
+              ),
+            ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DiffResultPanel extends StatelessWidget {
+  final List<dmp.Diff> diffs;
+  final _DiffStats summary;
+  final VoidCallback? onCopySummary;
+
+  const _DiffResultPanel({
+    required this.diffs,
+    required this.summary,
+    required this.onCopySummary,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AppCard(
+      padding: EdgeInsets.zero,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.md,
+              AppSpacing.sm,
+              AppSpacing.sm,
+              AppSpacing.sm,
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Wrap(
+                    spacing: AppSpacing.xs,
+                    runSpacing: AppSpacing.xs,
+                    children: [
+                      AppBadge(label: 'Added ${summary.added}'),
+                      AppBadge(label: 'Removed ${summary.removed}'),
+                      AppBadge(label: 'Changed ${summary.changed}'),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.copy),
+                  tooltip: 'Copy diff summary',
+                  onPressed: onCopySummary,
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          Expanded(
+            child: diffs.isEmpty
+                ? const AppEmptyState(
+                    icon: Icons.difference,
+                    title: 'Differences will appear here',
+                    message: 'Paste two text blocks and compare them.',
+                  )
+                : SingleChildScrollView(
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    child: _DiffText(diffs: diffs),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DiffText extends StatelessWidget {
+  final List<dmp.Diff> diffs;
+
+  const _DiffText({required this.diffs});
+
+  @override
+  Widget build(BuildContext context) {
+    final spans = <TextSpan>[];
+    for (final diff in diffs) {
+      Color? bgColor;
+      if (diff.operation == dmp.DIFF_INSERT) {
+        bgColor = AppColors.success.withValues(alpha: 0.20);
+      } else if (diff.operation == dmp.DIFF_DELETE) {
+        bgColor = AppColors.destructive.withValues(alpha: 0.20);
+      }
+      spans.add(
+        TextSpan(
+          text: diff.text,
+          style: TextStyle(backgroundColor: bgColor),
         ),
-      ],
+      );
+    }
+    return SelectableText.rich(
+      TextSpan(
+        style: AppTypography.mono(context),
+        children: spans,
+      ),
     );
   }
 }

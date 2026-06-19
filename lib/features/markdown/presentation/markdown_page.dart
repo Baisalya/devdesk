@@ -3,8 +3,16 @@ import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/design/app_breakpoints.dart';
+import '../../../core/design/app_colors.dart';
+import '../../../core/design/app_spacing.dart';
+import '../../../core/design/app_typography.dart';
 import '../../../core/files/external_file.dart';
 import '../../../core/files/external_file_service.dart';
+import '../../../core/widgets/app_badge.dart';
+import '../../../core/widgets/app_card.dart';
+import '../../../core/widgets/app_empty_state.dart';
+import '../../../core/widgets/app_editor_panel.dart';
 import '../provider/markdown_provider.dart';
 
 /// Page allowing the user to edit and preview markdown files.
@@ -44,6 +52,7 @@ class _MarkdownPageState extends ConsumerState<MarkdownPage>
     _lastSavedText = _controller.text;
     _controller.addListener(() {
       ref.read(markdownTextProvider.notifier).state = _controller.text;
+      if (mounted) setState(() {});
     });
   }
 
@@ -354,7 +363,7 @@ class _MarkdownPageState extends ConsumerState<MarkdownPage>
   @override
   Widget build(BuildContext context) {
     final markdownText = ref.watch(markdownTextProvider);
-    final isWide = MediaQuery.sizeOf(context).width >= 840;
+    final isWide = MediaQuery.sizeOf(context).width >= AppBreakpoints.medium;
     return PopScope(
       canPop: !_hasUnsavedChanges,
       onPopInvokedWithResult: (didPop, result) async {
@@ -420,35 +429,55 @@ class _MarkdownPageState extends ConsumerState<MarkdownPage>
               ],
             ),
           ],
-          bottom: isWide
-              ? null
-              : TabBar(
-                  controller: _tabController,
-                  tabs: const [Tab(text: 'Edit'), Tab(text: 'Preview')],
-                ),
         ),
         body: Column(
           children: [
-            if (_externalDocument != null)
-              _ExternalSourceBanner(document: _externalDocument!),
+            _DocumentStatusBar(
+              externalDocument: _externalDocument,
+              internalName: _currentFileName,
+              hasUnsavedChanges: _hasUnsavedChanges,
+            ),
             _MarkdownToolbar(onInsert: _insertMarkup),
             Expanded(
-              child: isWide
-                  ? Row(
-                      children: [
-                        Expanded(
-                            child: _MarkdownEditor(controller: _controller)),
-                        const VerticalDivider(width: 1),
-                        Expanded(child: _MarkdownPreview(data: markdownText)),
-                      ],
-                    )
-                  : TabBarView(
-                      controller: _tabController,
-                      children: [
-                        _MarkdownEditor(controller: _controller),
-                        _MarkdownPreview(data: markdownText),
-                      ],
-                    ),
+              child: Padding(
+                padding: AppSpacing.page(context).copyWith(top: AppSpacing.md),
+                child: isWide
+                    ? Row(
+                        children: [
+                          Expanded(
+                            child: _MarkdownEditor(controller: _controller),
+                          ),
+                          const SizedBox(width: AppSpacing.md),
+                          Expanded(child: _MarkdownPreview(data: markdownText)),
+                        ],
+                      )
+                    : Column(
+                        children: [
+                          AppCard(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.xs,
+                            ),
+                            child: TabBar(
+                              controller: _tabController,
+                              tabs: const [
+                                Tab(text: 'Edit'),
+                                Tab(text: 'Preview'),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: AppSpacing.md),
+                          Expanded(
+                            child: TabBarView(
+                              controller: _tabController,
+                              children: [
+                                _MarkdownEditor(controller: _controller),
+                                _MarkdownPreview(data: markdownText),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+              ),
             ),
           ],
         ),
@@ -457,28 +486,66 @@ class _MarkdownPageState extends ConsumerState<MarkdownPage>
   }
 }
 
-class _ExternalSourceBanner extends StatelessWidget {
-  final ExternalFileDocument document;
+class _DocumentStatusBar extends StatelessWidget {
+  final ExternalFileDocument? externalDocument;
+  final String? internalName;
+  final bool hasUnsavedChanges;
 
-  const _ExternalSourceBanner({required this.document});
+  const _DocumentStatusBar({
+    required this.externalDocument,
+    required this.internalName,
+    required this.hasUnsavedChanges,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final document = externalDocument;
+    final title = document == null
+        ? internalName ?? 'Untitled markdown'
+        : 'File: ${document.name}';
+    final source = document == null
+        ? (internalName == null ? 'Internal draft' : 'Internal file')
+        : document.canOverwriteOriginal
+            ? 'External file: ${document.sourceLabel}'
+            : 'External read copy: use Save As to export changes.';
     return Material(
       color: Theme.of(context).colorScheme.surfaceContainerHighest,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.sm,
+        ),
         child: Row(
           children: [
-            const Icon(Icons.folder_open, size: 18),
-            const SizedBox(width: 8),
+            Icon(document == null ? Icons.edit_document : Icons.folder_open),
+            const SizedBox(width: AppSpacing.sm),
             Expanded(
-              child: Text(
-                document.canOverwriteOriginal
-                    ? 'External file: ${document.sourceLabel}'
-                    : 'External read copy: use Save As to export changes.',
-                overflow: TextOverflow.ellipsis,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                  Text(
+                    source,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
               ),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            AppBadge(
+              label: hasUnsavedChanges ? 'Unsaved' : 'Saved',
+              icon: hasUnsavedChanges ? Icons.edit : Icons.check,
+              color: hasUnsavedChanges ? AppColors.warning : AppColors.success,
+              backgroundColor: hasUnsavedChanges
+                  ? AppColors.warningContainer(context)
+                  : AppColors.successContainer(context),
             ),
           ],
         ),
@@ -494,53 +561,86 @@ class _MarkdownToolbar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.title),
-            tooltip: 'Heading',
-            onPressed: () => onInsert('# '),
-          ),
-          IconButton(
-            icon: const Icon(Icons.format_bold),
-            tooltip: 'Bold',
-            onPressed: () => onInsert('**', suffix: '**'),
-          ),
-          IconButton(
-            icon: const Icon(Icons.format_italic),
-            tooltip: 'Italic',
-            onPressed: () => onInsert('*', suffix: '*'),
-          ),
-          IconButton(
-            icon: const Icon(Icons.code),
-            tooltip: 'Code block',
-            onPressed: () => onInsert('```\n', suffix: '\n```'),
-          ),
-          IconButton(
-            icon: const Icon(Icons.link),
-            tooltip: 'Link',
-            onPressed: () => onInsert('[', suffix: '](url)'),
-          ),
-          IconButton(
-            icon: const Icon(Icons.format_list_bulleted),
-            tooltip: 'List',
-            onPressed: () => onInsert('- '),
-          ),
-          IconButton(
-            icon: const Icon(Icons.check_box),
-            tooltip: 'Checklist',
-            onPressed: () => onInsert('- [ ] '),
-          ),
-          IconButton(
-            icon: const Icon(Icons.table_chart),
-            tooltip: 'Table',
-            onPressed: () => onInsert(
-              '\n| Column 1 | Column 2 |\n| --- | --- |\n| Cell 1 | Cell 2 |\n',
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.sm,
+        AppSpacing.md,
+        0,
+      ),
+      child: AppCard(
+        padding: const EdgeInsets.all(AppSpacing.xs),
+        child: Wrap(
+          spacing: AppSpacing.xs,
+          runSpacing: AppSpacing.xs,
+          children: [
+            _ToolbarButton(
+              icon: Icons.title,
+              label: 'Heading',
+              onPressed: () => onInsert('# '),
             ),
-          ),
-        ],
+            _ToolbarButton(
+              icon: Icons.format_bold,
+              label: 'Bold',
+              onPressed: () => onInsert('**', suffix: '**'),
+            ),
+            _ToolbarButton(
+              icon: Icons.format_italic,
+              label: 'Italic',
+              onPressed: () => onInsert('*', suffix: '*'),
+            ),
+            _ToolbarButton(
+              icon: Icons.code,
+              label: 'Code block',
+              onPressed: () => onInsert('```\n', suffix: '\n```'),
+            ),
+            _ToolbarButton(
+              icon: Icons.link,
+              label: 'Link',
+              onPressed: () => onInsert('[', suffix: '](url)'),
+            ),
+            _ToolbarButton(
+              icon: Icons.format_list_bulleted,
+              label: 'List',
+              onPressed: () => onInsert('- '),
+            ),
+            _ToolbarButton(
+              icon: Icons.check_box,
+              label: 'Checklist',
+              onPressed: () => onInsert('- [ ] '),
+            ),
+            _ToolbarButton(
+              icon: Icons.table_chart,
+              label: 'Table',
+              onPressed: () => onInsert(
+                '\n| Column 1 | Column 2 |\n| --- | --- |\n| Cell 1 | Cell 2 |\n',
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ToolbarButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onPressed;
+
+  const _ToolbarButton({
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: label,
+      child: IconButton.filledTonal(
+        icon: Icon(icon),
+        onPressed: onPressed,
       ),
     );
   }
@@ -553,16 +653,23 @@ class _MarkdownEditor extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(8),
+    return AppEditorPanel(
+      title: 'Editor',
+      subtitle: 'Markdown source',
       child: TextField(
         controller: controller,
         expands: true,
         minLines: null,
         maxLines: null,
-        decoration: const InputDecoration(
-          border: OutlineInputBorder(),
+        style: AppTypography.mono(context),
+        decoration: InputDecoration(
+          border: InputBorder.none,
+          enabledBorder: InputBorder.none,
+          focusedBorder: InputBorder.none,
+          filled: true,
+          fillColor: AppColors.codeBackground(context),
           hintText: 'Start writing markdown...',
+          contentPadding: const EdgeInsets.all(AppSpacing.md),
         ),
       ),
     );
@@ -577,8 +684,27 @@ class _MarkdownPreview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (data.trim().isEmpty) {
-      return const Center(child: Text('Preview will appear here'));
+      return const AppEditorPanel(
+        title: 'Preview',
+        subtitle: 'Rendered document',
+        child: AppEmptyState(
+          icon: Icons.article_outlined,
+          title: 'Preview will appear here',
+          message: 'Write Markdown or open a file to render it here.',
+        ),
+      );
     }
-    return Markdown(data: data);
+    return AppEditorPanel(
+      title: 'Preview',
+      subtitle: 'Rendered document',
+      child: Markdown(
+        data: data,
+        padding: const EdgeInsets.all(AppSpacing.xl),
+        styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
+          p: Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.55),
+          code: AppTypography.mono(context),
+        ),
+      ),
+    );
   }
 }

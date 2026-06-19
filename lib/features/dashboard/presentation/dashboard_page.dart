@@ -1,8 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/constants/tool_list.dart';
+import '../../../core/design/app_breakpoints.dart';
+import '../../../core/design/app_spacing.dart';
 import '../../../core/files/external_file.dart';
 import '../../../core/files/external_file_service.dart';
+import '../../../core/widgets/app_card.dart';
+import '../../../core/widgets/app_empty_state.dart';
+import '../../../core/widgets/app_section_header.dart';
+import '../../../core/widgets/app_tool_chip.dart';
 import '../../../core/widgets/tool_card.dart';
 import '../provider/tool_providers.dart';
 
@@ -17,6 +24,8 @@ class DashboardPage extends ConsumerWidget {
     final favourites = ref.watch(favouritesProvider);
     final recentTools = ref.watch(recentToolsProvider);
     final query = ref.watch(searchQueryProvider);
+    final favouriteTools =
+        tools.where((tool) => favourites.contains(tool.route)).toList();
 
     return Scaffold(
       appBar: AppBar(
@@ -29,129 +38,76 @@ class DashboardPage extends ConsumerWidget {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final search = TextField(
-                  decoration: const InputDecoration(
-                    hintText: 'Search tools by name or description',
-                    prefixIcon: Icon(Icons.search),
-                    border: OutlineInputBorder(),
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final width = constraints.maxWidth;
+            final isCompact = AppBreakpoints.isCompact(width);
+            return SingleChildScrollView(
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              padding: AppSpacing.page(context),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _DashboardHeader(
+                    isCompact: isCompact,
+                    onOpenFile: () => _openExternalFile(context, ref),
+                    onOpenApi: () => _openTool(context, ref, '/api'),
+                    onOpenJson: () => _openTool(context, ref, '/json'),
+                    onOpenMarkdown: () => _openTool(context, ref, '/markdown'),
+                    onOpenSnippet: () => _openTool(context, ref, '/snippets'),
                   ),
-                  onChanged: (value) {
-                    ref.read(searchQueryProvider.notifier).state = value;
-                  },
-                );
-                final openFile = OutlinedButton.icon(
-                  onPressed: () => _openExternalFile(context, ref),
-                  icon: const Icon(Icons.file_open),
-                  label: const Text('Open File'),
-                );
-                if (constraints.maxWidth < 640) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      search,
-                      const SizedBox(height: 8),
-                      openFile,
-                    ],
-                  );
-                }
-                return Row(
-                  children: [
-                    Expanded(child: search),
-                    const SizedBox(width: 8),
-                    openFile,
-                  ],
-                );
-              },
-            ),
-          ),
-          if (query.trim().isEmpty && recentTools.isNotEmpty)
-            SizedBox(
-              height: 52,
-              child: ListView.separated(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                scrollDirection: Axis.horizontal,
-                itemBuilder: (context, index) {
-                  final tool = recentTools[index];
-                  return ActionChip(
-                    avatar: Icon(tool.icon, size: 18),
-                    label: Text(tool.name),
-                    onPressed: () => _openTool(context, ref, tool.route),
-                  );
-                },
-                separatorBuilder: (_, __) => const SizedBox(width: 8),
-                itemCount: recentTools.length,
-              ),
-            ),
-          Expanded(
-            child: filteredTools.isEmpty
-                ? const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(24),
-                      child: Text(
-                        'No tools found. Try a different search term.',
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  )
-                : LayoutBuilder(
-                    builder: (context, constraints) {
-                      final width = constraints.maxWidth;
-                      final crossAxisCount = width >= 1000
-                          ? 3
-                          : width >= 620
-                              ? 2
-                              : 1;
-                      return GridView.builder(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: crossAxisCount,
-                          childAspectRatio: crossAxisCount == 1 ? 4.8 : 3.7,
-                        ),
-                        itemCount: filteredTools.length,
-                        itemBuilder: (context, index) {
-                          final tool = filteredTools[index];
-                          final isFav = favourites.contains(tool.route);
-                          return Stack(
-                            children: [
-                              Positioned.fill(
-                                child: ToolCard(
-                                  tool: tool,
-                                  onTap: () =>
-                                      _openTool(context, ref, tool.route),
-                                ),
-                              ),
-                              Positioned(
-                                top: 8,
-                                right: 8,
-                                child: IconButton(
-                                  icon: Icon(
-                                    isFav ? Icons.star : Icons.star_border,
-                                  ),
-                                  color: isFav ? Colors.amber : null,
-                                  tooltip: isFav
-                                      ? 'Remove from favourites'
-                                      : 'Add to favourites',
-                                  onPressed: () {
-                                    ref
-                                        .read(dashboardPrefsProvider.notifier)
-                                        .toggleFavourite(tool.route);
-                                  },
-                                ),
-                              ),
-                            ],
-                          );
-                        },
-                      );
+                  const SizedBox(height: AppSpacing.xl),
+                  _SearchBar(
+                    query: query,
+                    onChanged: (value) {
+                      ref.read(searchQueryProvider.notifier).state = value;
                     },
                   ),
-          ),
-        ],
+                  if (query.trim().isEmpty) ...[
+                    const SizedBox(height: AppSpacing.xl),
+                    _FavouriteSection(
+                      tools: favouriteTools,
+                      onOpenTool: (route) => _openTool(context, ref, route),
+                    ),
+                    const SizedBox(height: AppSpacing.xl),
+                    _RecentSection(
+                      tools: recentTools,
+                      onOpenTool: (route) => _openTool(context, ref, route),
+                    ),
+                  ],
+                  const SizedBox(height: AppSpacing.xl),
+                  AppSectionHeader(
+                    title: query.trim().isEmpty
+                        ? 'All developer tools'
+                        : 'Search results',
+                    subtitle: query.trim().isEmpty
+                        ? 'Offline utilities for day-to-day development work.'
+                        : '${filteredTools.length} tool(s) match "$query"',
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  if (filteredTools.isEmpty)
+                    const AppEmptyState(
+                      icon: Icons.search_off,
+                      title: 'No tools found',
+                      message: 'Try another name, format, token, API, or file.',
+                    )
+                  else
+                    _ToolGrid(
+                      tools: filteredTools,
+                      favourites: favourites,
+                      onOpenTool: (route) => _openTool(context, ref, route),
+                      onToggleFavourite: (route) {
+                        ref
+                            .read(dashboardPrefsProvider.notifier)
+                            .toggleFavourite(route);
+                      },
+                    ),
+                ],
+              ),
+            );
+          },
+        ),
       ),
     );
   }
@@ -219,6 +175,310 @@ class DashboardPage extends ConsumerWidget {
   void _showError(BuildContext context, String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
+    );
+  }
+}
+
+class _DashboardHeader extends StatelessWidget {
+  final bool isCompact;
+  final VoidCallback onOpenFile;
+  final VoidCallback onOpenApi;
+  final VoidCallback onOpenJson;
+  final VoidCallback onOpenMarkdown;
+  final VoidCallback onOpenSnippet;
+
+  const _DashboardHeader({
+    required this.isCompact,
+    required this.onOpenFile,
+    required this.onOpenApi,
+    required this.onOpenJson,
+    required this.onOpenMarkdown,
+    required this.onOpenSnippet,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final title = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'DevKit Offline',
+          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        Text(
+          'Offline developer toolbox',
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: scheme.primary,
+              ),
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        Text(
+          'Tools for JSON, APIs, Markdown, tokens, snippets and more.',
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
+        ),
+      ],
+    );
+    final actions = Wrap(
+      spacing: AppSpacing.xs,
+      runSpacing: AppSpacing.xs,
+      children: [
+        _QuickAction(
+          icon: Icons.file_open,
+          label: 'Open File',
+          onPressed: onOpenFile,
+          primary: true,
+        ),
+        _QuickAction(
+          icon: Icons.api,
+          label: 'API Request',
+          onPressed: onOpenApi,
+        ),
+        _QuickAction(
+          icon: Icons.data_object,
+          label: 'Format JSON',
+          onPressed: onOpenJson,
+        ),
+        _QuickAction(
+          icon: Icons.edit_document,
+          label: 'New Markdown',
+          onPressed: onOpenMarkdown,
+        ),
+        _QuickAction(
+          icon: Icons.note_add,
+          label: 'New Snippet',
+          onPressed: onOpenSnippet,
+        ),
+      ],
+    );
+    return AppCard(
+      padding: const EdgeInsets.all(AppSpacing.xl),
+      child: isCompact
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                title,
+                const SizedBox(height: AppSpacing.lg),
+                actions,
+              ],
+            )
+          : Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(child: title),
+                const SizedBox(width: AppSpacing.xl),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 520),
+                  child: actions,
+                ),
+              ],
+            ),
+    );
+  }
+}
+
+class _QuickAction extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onPressed;
+  final bool primary;
+
+  const _QuickAction({
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+    this.primary = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (primary) {
+      return FilledButton.icon(
+        onPressed: onPressed,
+        icon: Icon(icon),
+        label: Text(label),
+      );
+    }
+    return OutlinedButton.icon(
+      onPressed: onPressed,
+      icon: Icon(icon),
+      label: Text(label),
+    );
+  }
+}
+
+class _SearchBar extends StatelessWidget {
+  final String query;
+  final ValueChanged<String> onChanged;
+
+  const _SearchBar({required this.query, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      key: const ValueKey('dashboard-search'),
+      controller: TextEditingController(text: query)
+        ..selection = TextSelection.collapsed(offset: query.length),
+      decoration: const InputDecoration(
+        hintText: 'Search tools by name or description',
+        prefixIcon: Icon(Icons.search),
+      ),
+      onChanged: onChanged,
+    );
+  }
+}
+
+class _FavouriteSection extends StatelessWidget {
+  final List<DevTool> tools;
+  final ValueChanged<String> onOpenTool;
+
+  const _FavouriteSection({
+    required this.tools,
+    required this.onOpenTool,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const AppSectionHeader(
+            title: 'Favourites',
+            subtitle: 'Pin tools you use constantly.',
+          ),
+          const SizedBox(height: AppSpacing.md),
+          if (tools.isEmpty)
+            Text(
+              'Tap the star on any tool to keep it here.',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+            )
+          else
+            Wrap(
+              spacing: AppSpacing.xs,
+              runSpacing: AppSpacing.xs,
+              children: [
+                for (final tool in tools)
+                  AppToolChip(
+                    icon: tool.icon,
+                    label: tool.name,
+                    onPressed: () => onOpenTool(tool.route),
+                  ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RecentSection extends StatelessWidget {
+  final List<DevTool> tools;
+  final ValueChanged<String> onOpenTool;
+
+  const _RecentSection({
+    required this.tools,
+    required this.onOpenTool,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const AppSectionHeader(
+            title: 'Recent',
+            subtitle: 'Quickly jump back into your last tools.',
+          ),
+          const SizedBox(height: AppSpacing.md),
+          if (tools.isEmpty)
+            Text(
+              'Your recently opened tools and files will appear here.',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+            )
+          else
+            Wrap(
+              spacing: AppSpacing.xs,
+              runSpacing: AppSpacing.xs,
+              children: [
+                for (final tool in tools)
+                  AppToolChip(
+                    icon: tool.icon,
+                    label: tool.name,
+                    onPressed: () => onOpenTool(tool.route),
+                  ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ToolGrid extends StatelessWidget {
+  final List<DevTool> tools;
+  final Set<String> favourites;
+  final ValueChanged<String> onOpenTool;
+  final ValueChanged<String> onToggleFavourite;
+
+  const _ToolGrid({
+    required this.tools,
+    required this.favourites,
+    required this.onOpenTool,
+    required this.onToggleFavourite,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final crossAxisCount = width >= 1600
+            ? 4
+            : width >= 900
+                ? 3
+                : width >= AppBreakpoints.compact
+                    ? 2
+                    : 1;
+        final childAspectRatio = switch (crossAxisCount) {
+          1 => 3.2,
+          2 => 2.55,
+          3 => 2.45,
+          _ => 2.25,
+        };
+        return GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: tools.length,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossAxisCount,
+            crossAxisSpacing: AppSpacing.md,
+            mainAxisSpacing: AppSpacing.md,
+            childAspectRatio: childAspectRatio,
+          ),
+          itemBuilder: (context, index) {
+            final tool = tools[index];
+            final isFav = favourites.contains(tool.route);
+            return ToolCard(
+              tool: tool,
+              favourite: isFav,
+              onTap: () => onOpenTool(tool.route),
+              onFavouritePressed: () => onToggleFavourite(tool.route),
+              dense: crossAxisCount > 2,
+            );
+          },
+        );
+      },
     );
   }
 }

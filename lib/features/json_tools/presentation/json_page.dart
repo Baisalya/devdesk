@@ -2,9 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/design/app_breakpoints.dart';
+import '../../../core/design/app_colors.dart';
+import '../../../core/design/app_spacing.dart';
+import '../../../core/design/app_typography.dart';
 import '../../../core/files/external_file.dart';
 import '../../../core/files/external_file_service.dart';
 import '../../../core/utils/json_utils.dart';
+import '../../../core/widgets/app_editor_panel.dart';
+import '../../../core/widgets/app_error_state.dart';
 import '../provider/json_provider.dart';
 
 /// Page for viewing, validating and formatting JSON.
@@ -98,79 +104,117 @@ class _JsonPageState extends ConsumerState<JsonPage> {
         children: [
           if (_externalDocument != null)
             _JsonSourceBanner(document: _externalDocument!),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.all(8),
-            child: Row(
-              children: [
-                ElevatedButton(
-                  onPressed: () => formatJson(ref),
-                  child: const Text('Format'),
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton(
-                  onPressed: () => minifyJson(ref),
-                  child: const Text('Minify'),
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton(
-                  onPressed: output != null
-                      ? () async {
-                          await Clipboard.setData(
-                            ClipboardData(text: output),
-                          );
-                          if (!context.mounted) return;
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Copied to clipboard'),
-                            ),
-                          );
-                        }
-                      : null,
-                  child: const Text('Copy'),
-                ),
-                const SizedBox(width: 8),
-                OutlinedButton(
-                  onPressed: _clear,
-                  child: const Text('Clear'),
-                ),
-                const SizedBox(width: 8),
-                OutlinedButton.icon(
-                  onPressed: () => _saveJson(minified: false),
-                  icon: const Icon(Icons.save_alt),
-                  label: const Text('Save formatted'),
-                ),
-                const SizedBox(width: 8),
-                OutlinedButton.icon(
-                  onPressed: () => _saveJson(minified: true),
-                  icon: const Icon(Icons.compress),
-                  label: const Text('Save minified'),
-                ),
-              ],
-            ),
+          _JsonToolbar(
+            output: output,
+            onFormat: () => formatJson(ref),
+            onMinify: () => minifyJson(ref),
+            onClear: _clear,
+            onSaveFormatted: () => _saveJson(minified: false),
+            onSaveMinified: () => _saveJson(minified: true),
           ),
           Expanded(
             child: LayoutBuilder(
               builder: (context, constraints) {
-                final isWide = constraints.maxWidth >= 720;
+                final isWide = constraints.maxWidth >= AppBreakpoints.medium;
                 final input = _InputEditor(controller: _inputController);
                 final outputView =
                     _OutputView(output: output, treeData: treeData);
-                return isWide
-                    ? Row(
-                        children: [
-                          Expanded(child: input),
-                          Expanded(child: outputView),
-                        ],
-                      )
-                    : Column(
-                        children: [
-                          Expanded(child: input),
-                          Expanded(child: outputView),
-                        ],
-                      );
+                return Padding(
+                  padding:
+                      AppSpacing.page(context).copyWith(top: AppSpacing.md),
+                  child: isWide
+                      ? Row(
+                          children: [
+                            Expanded(child: input),
+                            const SizedBox(width: AppSpacing.md),
+                            Expanded(child: outputView),
+                          ],
+                        )
+                      : Column(
+                          children: [
+                            Expanded(child: input),
+                            const SizedBox(height: AppSpacing.md),
+                            Expanded(child: outputView),
+                          ],
+                        ),
+                );
               },
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _JsonToolbar extends StatelessWidget {
+  final String? output;
+  final VoidCallback onFormat;
+  final VoidCallback onMinify;
+  final VoidCallback onClear;
+  final VoidCallback onSaveFormatted;
+  final VoidCallback onSaveMinified;
+
+  const _JsonToolbar({
+    required this.output,
+    required this.onFormat,
+    required this.onMinify,
+    required this.onClear,
+    required this.onSaveFormatted,
+    required this.onSaveMinified,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final copyValue = output;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.sm,
+        AppSpacing.md,
+        0,
+      ),
+      child: Wrap(
+        spacing: AppSpacing.xs,
+        runSpacing: AppSpacing.xs,
+        children: [
+          FilledButton.icon(
+            onPressed: onFormat,
+            icon: const Icon(Icons.auto_fix_high),
+            label: const Text('Format'),
+          ),
+          OutlinedButton.icon(
+            onPressed: onMinify,
+            icon: const Icon(Icons.compress),
+            label: const Text('Minify'),
+          ),
+          OutlinedButton.icon(
+            onPressed: copyValue == null
+                ? null
+                : () async {
+                    await Clipboard.setData(ClipboardData(text: copyValue));
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Copied to clipboard')),
+                    );
+                  },
+            icon: const Icon(Icons.copy),
+            label: const Text('Copy'),
+          ),
+          OutlinedButton.icon(
+            onPressed: onClear,
+            icon: const Icon(Icons.backspace_outlined),
+            label: const Text('Clear'),
+          ),
+          OutlinedButton.icon(
+            onPressed: onSaveFormatted,
+            icon: const Icon(Icons.save_alt),
+            label: const Text('Save formatted'),
+          ),
+          OutlinedButton.icon(
+            onPressed: onSaveMinified,
+            icon: const Icon(Icons.save_as),
+            label: const Text('Save minified'),
           ),
         ],
       ),
@@ -188,11 +232,14 @@ class _JsonSourceBanner extends StatelessWidget {
     return Material(
       color: Theme.of(context).colorScheme.surfaceContainerHighest,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.sm,
+        ),
         child: Row(
           children: [
             const Icon(Icons.data_object, size: 18),
-            const SizedBox(width: 8),
+            const SizedBox(width: AppSpacing.xs),
             Expanded(
               child: Text(
                 'External JSON: ${document.sourceLabel}',
@@ -213,16 +260,22 @@ class _InputEditor extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(8),
+    return AppEditorPanel(
+      title: 'Input',
+      subtitle: 'Paste raw JSON',
       child: TextField(
         controller: controller,
         expands: true,
         minLines: null,
         maxLines: null,
-        decoration: const InputDecoration(
+        style: AppTypography.mono(context),
+        decoration: InputDecoration(
           hintText: 'Paste JSON here...',
-          border: OutlineInputBorder(),
+          border: InputBorder.none,
+          enabledBorder: InputBorder.none,
+          focusedBorder: InputBorder.none,
+          fillColor: AppColors.codeBackground(context),
+          contentPadding: const EdgeInsets.all(AppSpacing.md),
         ),
         keyboardType: TextInputType.multiline,
       ),
@@ -238,53 +291,77 @@ class _OutputView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        border: Border.all(color: Theme.of(context).dividerColor),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: output == null
-          ? const Center(child: Text('Output will appear here'))
-          : output!.startsWith('Invalid')
-              ? SingleChildScrollView(
-                  padding: const EdgeInsets.all(8),
-                  child: Text(
-                    output!,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
-                    ),
-                  ),
-                )
-              : DefaultTabController(
-                  length: 2,
-                  child: Column(
-                    children: [
-                      const TabBar(
-                        tabs: [Tab(text: 'Text'), Tab(text: 'Tree')],
-                      ),
-                      Expanded(
-                        child: TabBarView(
-                          children: [
-                            SingleChildScrollView(
-                              padding: const EdgeInsets.all(8),
-                              scrollDirection: Axis.horizontal,
-                              child: SingleChildScrollView(
-                                child: SelectableText(output!),
-                              ),
-                            ),
-                            SingleChildScrollView(
-                              padding: const EdgeInsets.all(8),
-                              child: treeData == null
-                                  ? const Text('Invalid JSON')
-                                  : JsonTreeView(data: treeData),
-                            ),
-                          ],
+    Widget child;
+    if (output == null) {
+      child = Center(
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: Text(
+            'Output will appear here',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+          ),
+        ),
+      );
+    } else if (output!.startsWith('Invalid')) {
+      child = Container(
+        color: Theme.of(context).colorScheme.errorContainer,
+        padding: const EdgeInsets.all(AppSpacing.md),
+        child: SingleChildScrollView(
+          child: SelectableText(
+            output!,
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onErrorContainer,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      );
+    } else {
+      child = DefaultTabController(
+        length: 2,
+        child: Column(
+          children: [
+            const TabBar(
+              tabs: [
+                Tab(text: 'Raw'),
+                Tab(text: 'Tree'),
+              ],
+            ),
+            Expanded(
+              child: TabBarView(
+                children: [
+                  Container(
+                    color: AppColors.codeBackground(context),
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(AppSpacing.md),
+                      scrollDirection: Axis.horizontal,
+                      child: SingleChildScrollView(
+                        child: SelectableText(
+                          output!,
+                          style: AppTypography.mono(context),
                         ),
                       ),
-                    ],
+                    ),
                   ),
-                ),
+                  SingleChildScrollView(
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    child: treeData == null
+                        ? const AppErrorState(message: 'Invalid JSON')
+                        : JsonTreeView(data: treeData),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    return AppEditorPanel(
+      title: 'Result',
+      subtitle: output == null ? 'Formatted output and tree view' : 'Ready',
+      child: child,
     );
   }
 }
@@ -301,46 +378,54 @@ class JsonTreeView extends StatelessWidget {
   Widget build(BuildContext context) {
     if (data is Map) {
       final map = data as Map;
-      if (map.isEmpty) return _buildLeaf(keyName ?? '{}', '{}');
+      if (map.isEmpty) return _buildLeaf(context, keyName ?? '{}', '{}');
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: map.entries.map((entry) {
-          return _buildNode(entry.key.toString(), entry.value);
+          return _buildNode(context, entry.key.toString(), entry.value);
         }).toList(),
       );
     }
     if (data is List) {
       final list = data as List;
-      if (list.isEmpty) return _buildLeaf(keyName ?? '[]', '[]');
+      if (list.isEmpty) return _buildLeaf(context, keyName ?? '[]', '[]');
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          for (var i = 0; i < list.length; i++) _buildNode('[$i]', list[i]),
+          for (var i = 0; i < list.length; i++)
+            _buildNode(context, '[$i]', list[i]),
         ],
       );
     }
-    return _buildLeaf(keyName ?? 'value', data);
+    return _buildLeaf(context, keyName ?? 'value', data);
   }
 
-  Widget _buildNode(String key, dynamic value) {
+  Widget _buildNode(BuildContext context, String key, dynamic value) {
     if (value is Map || value is List) {
       return ExpansionTile(
         tilePadding: EdgeInsets.zero,
-        title: Text(key),
+        title: Text(key, style: AppTypography.mono(context)),
         children: [JsonTreeView(data: value)],
       );
     }
-    return _buildLeaf(key, value);
+    return _buildLeaf(context, key, value);
   }
 
-  Widget _buildLeaf(String key, dynamic value) {
+  Widget _buildLeaf(BuildContext context, String key, dynamic value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('$key: ', style: const TextStyle(fontWeight: FontWeight.bold)),
-          Expanded(child: Text(value.toString())),
+          Text(
+            '$key: ',
+            style: AppTypography.mono(context).copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          Expanded(
+            child: Text(value.toString(), style: AppTypography.mono(context)),
+          ),
         ],
       ),
     );

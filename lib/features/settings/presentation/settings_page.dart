@@ -5,10 +5,14 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/app.dart';
+import '../../../core/design/app_colors.dart';
+import '../../../core/design/app_spacing.dart';
 import '../../../core/files/external_file.dart';
 import '../../../core/files/external_file_service.dart';
 import '../../../core/storage/backup_utils.dart';
 import '../../../core/storage/local_storage.dart';
+import '../../../core/widgets/app_card.dart';
+import '../../../core/widgets/app_section_header.dart';
 
 /// Settings page for theme selection, data management and about information.
 class SettingsPage extends ConsumerStatefulWidget {
@@ -40,87 +44,143 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
       body: ListView(
+        padding: AppSpacing.page(context),
         children: [
-          const ListTile(title: Text('Appearance')),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: SegmentedButton<ThemeMode>(
-              segments: const [
-                ButtonSegment(
-                  value: ThemeMode.system,
-                  label: Text('System'),
-                  icon: Icon(Icons.brightness_auto),
-                ),
-                ButtonSegment(
-                  value: ThemeMode.light,
-                  label: Text('Light'),
-                  icon: Icon(Icons.light_mode),
-                ),
-                ButtonSegment(
-                  value: ThemeMode.dark,
-                  label: Text('Dark'),
-                  icon: Icon(Icons.dark_mode),
-                ),
-              ],
-              selected: {themeMode},
-              onSelectionChanged: (selection) {
-                ref
-                    .read(themeModeProvider.notifier)
-                    .setThemeMode(selection.first);
-              },
-            ),
+          _SettingsSection(
+            title: 'Appearance',
+            subtitle: 'Choose how DevDesk follows your system theme.',
+            children: [
+              SegmentedButton<ThemeMode>(
+                segments: const [
+                  ButtonSegment(
+                    value: ThemeMode.system,
+                    label: Text('System'),
+                    icon: Icon(Icons.brightness_auto),
+                  ),
+                  ButtonSegment(
+                    value: ThemeMode.light,
+                    label: Text('Light'),
+                    icon: Icon(Icons.light_mode),
+                  ),
+                  ButtonSegment(
+                    value: ThemeMode.dark,
+                    label: Text('Dark'),
+                    icon: Icon(Icons.dark_mode),
+                  ),
+                ],
+                selected: {themeMode},
+                onSelectionChanged: (selection) {
+                  ref
+                      .read(themeModeProvider.notifier)
+                      .setThemeMode(selection.first);
+                },
+              ),
+            ],
           ),
-          const SizedBox(height: 12),
-          const Divider(),
-          ListTile(
-            leading: const Icon(Icons.delete_forever),
-            title: const Text('Clear All Data'),
-            subtitle: const Text(
-              'Deletes all stored notes, API history and settings',
-            ),
-            onTap: _clearAllData,
+          const SizedBox(height: AppSpacing.md),
+          _SettingsSection(
+            title: 'Data backup',
+            subtitle: 'Export or restore local data with preview-first import.',
+            children: [
+              _SettingsTile(
+                icon: Icons.download,
+                title: 'Export Backup File',
+                subtitle: 'Save all local app data as JSON.',
+                onTap: _exportBackupFile,
+              ),
+              _SettingsTile(
+                icon: Icons.copy,
+                title: 'Copy Backup JSON',
+                subtitle: 'Clipboard fallback for backup export.',
+                onTap: _exportBackupClipboard,
+              ),
+              _SettingsTile(
+                icon: Icons.upload_file,
+                title: 'Import Backup File',
+                subtitle: 'Preview a DevDesk backup before applying it.',
+                onTap: _importBackupFile,
+              ),
+              _SettingsTile(
+                icon: Icons.paste,
+                title: 'Import Backup from Text',
+                subtitle: 'Paste backup JSON and preview before import.',
+                onTap: _importBackupText,
+              ),
+            ],
           ),
-          ListTile(
-            leading: const Icon(Icons.download),
-            title: const Text('Export Backup File'),
-            subtitle: const Text('Save all local app data as JSON'),
-            onTap: _exportBackupFile,
+          const SizedBox(height: AppSpacing.md),
+          _SettingsSection(
+            title: 'File handling',
+            subtitle:
+                'External files stay local and are only read after you choose them.',
+            children: const [
+              _SettingsTile(
+                icon: Icons.folder_open,
+                title: 'External files',
+                subtitle:
+                    'Markdown, JSON, text, API collections and backups open into their matching tools.',
+              ),
+              _SettingsTile(
+                icon: Icons.save_as,
+                title: 'Save As safety',
+                subtitle:
+                    'External edits use explicit Save or Save As flows with overwrite confirmation.',
+              ),
+            ],
           ),
-          ListTile(
-            leading: const Icon(Icons.copy),
-            title: const Text('Copy Backup JSON'),
-            subtitle: const Text('Clipboard fallback for backup export'),
-            onTap: _exportBackupClipboard,
+          const SizedBox(height: AppSpacing.md),
+          _SettingsSection(
+            title: 'API tester safety',
+            subtitle:
+                'Secrets are protected by default when saving request history.',
+            children: const [
+              _SettingsTile(
+                icon: Icons.security,
+                title: 'Sensitive headers',
+                subtitle:
+                    'Authorization, token, API key and secret headers are stripped unless you explicitly opt in.',
+              ),
+            ],
           ),
-          ListTile(
-            leading: const Icon(Icons.upload_file),
-            title: const Text('Import Backup File'),
-            subtitle: const Text('Preview a DevDesk backup before applying it'),
-            onTap: _importBackupFile,
+          const SizedBox(height: AppSpacing.md),
+          _SettingsSection(
+            title: 'Privacy & security',
+            subtitle: 'Local-first behavior with no analytics or backend.',
+            children: [
+              _SettingsTile(
+                icon: Icons.privacy_tip,
+                title: 'Privacy',
+                subtitle: 'Local-first, no analytics, no backend.',
+                onTap: _showPrivacy,
+              ),
+              _SettingsTile(
+                icon: Icons.delete_forever,
+                title: 'Clear All Data',
+                subtitle: 'Deletes all stored notes, API history and settings.',
+                destructive: true,
+                onTap: _clearAllData,
+              ),
+            ],
           ),
-          ListTile(
-            leading: const Icon(Icons.paste),
-            title: const Text('Import Backup from Text'),
-            subtitle: const Text('Paste backup JSON and preview before import'),
-            onTap: _importBackupText,
-          ),
-          const Divider(),
-          ListTile(
-            title: const Text('Privacy'),
-            subtitle: const Text('Local-first, no analytics, no backend'),
-            onTap: _showPrivacy,
-          ),
-          ListTile(
-            title: const Text('About'),
-            subtitle: const Text('Version 1.0.0'),
-            onTap: () {
-              showAboutDialog(
-                context: context,
-                applicationName: 'DevDesk',
-                applicationVersion: '1.0.0',
-                applicationLegalese: 'Copyright 2026 DevDesk Contributors',
-              );
-            },
+          const SizedBox(height: AppSpacing.md),
+          _SettingsSection(
+            title: 'About',
+            subtitle: 'DevKit Offline release information.',
+            children: [
+              _SettingsTile(
+                icon: Icons.info,
+                title: 'About DevDesk',
+                subtitle: 'Version 1.0.0',
+                onTap: () {
+                  showAboutDialog(
+                    context: context,
+                    applicationName: 'DevDesk',
+                    applicationVersion: '1.0.0',
+                    applicationLegalese: 'Copyright 2026 DevDesk Contributors',
+                  );
+                },
+              ),
+            ],
           ),
         ],
       ),
@@ -331,6 +391,71 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
+    );
+  }
+}
+
+class _SettingsSection extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final List<Widget> children;
+
+  const _SettingsSection({
+    required this.title,
+    required this.subtitle,
+    required this.children,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AppSectionHeader(title: title, subtitle: subtitle),
+          const SizedBox(height: AppSpacing.md),
+          ...children,
+        ],
+      ),
+    );
+  }
+}
+
+class _SettingsTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback? onTap;
+  final bool destructive;
+
+  const _SettingsTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    this.onTap,
+    this.destructive = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = destructive
+        ? AppColors.destructive
+        : Theme.of(context).colorScheme.primary;
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: Icon(icon, color: color),
+      title: Text(
+        title,
+        style: destructive
+            ? TextStyle(
+                color: Theme.of(context).colorScheme.error,
+                fontWeight: FontWeight.w700,
+              )
+            : null,
+      ),
+      subtitle: Text(subtitle),
+      onTap: onTap,
+      trailing: onTap == null ? null : const Icon(Icons.chevron_right),
     );
   }
 }

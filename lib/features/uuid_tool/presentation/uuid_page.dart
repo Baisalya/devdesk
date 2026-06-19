@@ -2,6 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/design/app_breakpoints.dart';
+import '../../../core/design/app_spacing.dart';
+import '../../../core/design/app_typography.dart';
+import '../../../core/widgets/app_card.dart';
+import '../../../core/widgets/app_empty_state.dart';
 import '../provider/uuid_provider.dart';
 
 /// Page for generating UUIDs.
@@ -34,81 +39,190 @@ class _UuidPageState extends ConsumerState<UuidPage> {
     final uuids = ref.watch(uuidListProvider);
     return Scaffold(
       appBar: AppBar(title: const Text('UUID Generator')),
-      body: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Wrap(
-              spacing: 8,
-              crossAxisAlignment: WrapCrossAlignment.center,
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final isWide = constraints.maxWidth >= AppBreakpoints.medium;
+          final generator = _UuidGeneratorCard(
+            controller: _countController,
+            onCountChanged: (value) {
+              final parsed = int.tryParse(value);
+              if (parsed != null && parsed >= 1 && parsed <= 1000) {
+                ref.read(uuidCountProvider.notifier).state = parsed;
+              }
+            },
+            onGenerate: () => generateUuids(ref),
+          );
+          final list = _UuidListPanel(uuids: uuids);
+          return Padding(
+            padding: AppSpacing.page(context),
+            child: isWide
+                ? Row(
+                    children: [
+                      SizedBox(width: 360, child: generator),
+                      const SizedBox(width: AppSpacing.md),
+                      Expanded(child: list),
+                    ],
+                  )
+                : Column(
+                    children: [
+                      SizedBox(height: 220, child: generator),
+                      const SizedBox(height: AppSpacing.md),
+                      Expanded(child: list),
+                    ],
+                  ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _UuidGeneratorCard extends StatelessWidget {
+  final TextEditingController controller;
+  final ValueChanged<String> onCountChanged;
+  final VoidCallback onGenerate;
+
+  const _UuidGeneratorCard({
+    required this.controller,
+    required this.onCountChanged,
+    required this.onGenerate,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('Generator', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: AppSpacing.sm),
+          TextField(
+            controller: controller,
+            keyboardType: TextInputType.number,
+            onChanged: onCountChanged,
+            decoration: const InputDecoration(
+              labelText: 'Count',
+              helperText: '1-1000',
+              prefixIcon: Icon(Icons.tag),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          FilledButton.icon(
+            onPressed: onGenerate,
+            icon: const Icon(Icons.auto_awesome),
+            label: const Text('Generate'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _UuidListPanel extends StatelessWidget {
+  final List<String> uuids;
+
+  const _UuidListPanel({required this.uuids});
+
+  @override
+  Widget build(BuildContext context) {
+    return AppCard(
+      padding: EdgeInsets.zero,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.md,
+              AppSpacing.sm,
+              AppSpacing.sm,
+              AppSpacing.sm,
+            ),
+            child: Row(
               children: [
-                const Text('Count:'),
-                SizedBox(
-                  width: 96,
-                  child: TextField(
-                    controller: _countController,
-                    keyboardType: TextInputType.number,
-                    onChanged: (value) {
-                      final parsed = int.tryParse(value);
-                      if (parsed != null && parsed >= 1 && parsed <= 1000) {
-                        ref.read(uuidCountProvider.notifier).state = parsed;
-                      }
-                    },
-                    decoration: const InputDecoration(
-                      helperText: '1-1000',
-                      border: OutlineInputBorder(),
-                    ),
+                Expanded(
+                  child: Text(
+                    'Generated UUIDs',
+                    style: Theme.of(context).textTheme.titleMedium,
                   ),
                 ),
-                ElevatedButton(
-                  onPressed: () => generateUuids(ref),
-                  child: const Text('Generate'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            if (uuids.isNotEmpty)
-              Align(
-                alignment: Alignment.centerLeft,
-                child: OutlinedButton.icon(
-                  onPressed: () async {
-                    await Clipboard.setData(
-                      ClipboardData(text: uuids.join('\n')),
-                    );
-                    if (!context.mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('All UUIDs copied')),
-                    );
-                  },
+                OutlinedButton.icon(
+                  onPressed: uuids.isEmpty
+                      ? null
+                      : () async {
+                          await Clipboard.setData(
+                            ClipboardData(text: uuids.join('\n')),
+                          );
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('All UUIDs copied')),
+                          );
+                        },
                   icon: const Icon(Icons.copy_all),
                   label: const Text('Copy all'),
                 ),
-              ),
-            Expanded(
-              child: ListView.builder(
-                itemCount: uuids.length,
-                itemBuilder: (context, index) {
-                  final id = uuids[index];
-                  return ListTile(
-                    title: SelectableText(id),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.copy),
-                      tooltip: 'Copy UUID',
-                      onPressed: () async {
-                        await Clipboard.setData(ClipboardData(text: id));
-                        if (!context.mounted) return;
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('UUID copied')),
-                        );
-                      },
-                    ),
-                  );
-                },
-              ),
+              ],
             ),
-          ],
-        ),
+          ),
+          const Divider(height: 1),
+          Expanded(
+            child: uuids.isEmpty
+                ? const AppEmptyState(
+                    icon: Icons.confirmation_number_outlined,
+                    title: 'No UUIDs yet',
+                    message: 'Choose a count and generate UUID v4 values.',
+                  )
+                : LayoutBuilder(
+                    builder: (context, constraints) {
+                      final columns = constraints.maxWidth >= 900 ? 2 : 1;
+                      return GridView.builder(
+                        padding: const EdgeInsets.all(AppSpacing.md),
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: columns,
+                          crossAxisSpacing: AppSpacing.sm,
+                          mainAxisSpacing: AppSpacing.sm,
+                          childAspectRatio: columns == 1 ? 6.4 : 5.6,
+                        ),
+                        itemCount: uuids.length,
+                        itemBuilder: (context, index) {
+                          final id = uuids[index];
+                          return AppCard(
+                            filled: false,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.md,
+                              vertical: AppSpacing.xs,
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: SelectableText(
+                                    id,
+                                    style: AppTypography.mono(context),
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.copy),
+                                  tooltip: 'Copy UUID',
+                                  onPressed: () async {
+                                    await Clipboard.setData(
+                                      ClipboardData(text: id),
+                                    );
+                                    if (!context.mounted) return;
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('UUID copied'),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  ),
+          ),
+        ],
       ),
     );
   }
