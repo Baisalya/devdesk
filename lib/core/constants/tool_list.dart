@@ -37,10 +37,10 @@ const List<DevTool> tools = [
     description: 'Validate and format JSON.',
   ),
   DevTool(
-    name: 'API Tester',
+    name: 'API Workspaces',
     route: '/api',
     icon: Icons.api,
-    description: 'Send HTTP requests like Postman.',
+    description: 'Manage offline API workspaces, collections and runners.',
   ),
   DevTool(
     name: 'JWT Decoder',

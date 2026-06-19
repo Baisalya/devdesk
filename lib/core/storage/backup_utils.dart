@@ -5,6 +5,9 @@ class BackupPreview {
   final int snippetsCount;
   final int apiHistoryCount;
   final int environmentsCount;
+  final int apiWorkspacesCount;
+  final int apiWorkspaceHistoryCount;
+  final int apiWorkspaceReportsCount;
   final int settingsCount;
 
   const BackupPreview({
@@ -12,6 +15,9 @@ class BackupPreview {
     required this.snippetsCount,
     required this.apiHistoryCount,
     required this.environmentsCount,
+    this.apiWorkspacesCount = 0,
+    this.apiWorkspaceHistoryCount = 0,
+    this.apiWorkspaceReportsCount = 0,
     required this.settingsCount,
   });
 
@@ -20,6 +26,9 @@ class BackupPreview {
       snippetsCount == 0 &&
       apiHistoryCount == 0 &&
       environmentsCount == 0 &&
+      apiWorkspacesCount == 0 &&
+      apiWorkspaceHistoryCount == 0 &&
+      apiWorkspaceReportsCount == 0 &&
       settingsCount == 0;
 }
 
@@ -30,13 +39,21 @@ class BackupUtils {
   static const dashboardBox = 'dashboard';
   static const apiHistoryBox = 'api_history';
   static const apiEnvironmentsBox = 'api_environments';
+  static const apiWorkspacesBox = 'api_workspaces';
+  static const apiWorkspaceHistoryBox = 'api_workspace_history';
+  static const apiWorkspaceReportsBox = 'api_workspace_reports';
   static const snippetsBox = 'snippets';
+  static const apiWorkspaceMetaBox = 'api_workspace_meta';
   static const markdownFilesBox = 'markdown_files';
   static const knownBoxes = <String>[
     settingsBox,
     dashboardBox,
     apiHistoryBox,
     apiEnvironmentsBox,
+    apiWorkspacesBox,
+    apiWorkspaceHistoryBox,
+    apiWorkspaceReportsBox,
+    apiWorkspaceMetaBox,
     snippetsBox,
     markdownFilesBox,
   ];
@@ -90,12 +107,18 @@ class BackupUtils {
     final snippets = _section(boxes, snippetsBox);
     final apiHistory = _section(boxes, apiHistoryBox);
     final environments = _section(boxes, apiEnvironmentsBox);
+    final apiWorkspaces = _section(boxes, apiWorkspacesBox);
+    final apiWorkspaceHistory = _section(boxes, apiWorkspaceHistoryBox);
+    final apiWorkspaceReports = _section(boxes, apiWorkspaceReportsBox);
     final settings = _section(boxes, settingsBox);
     return BackupPreview(
       markdownFilesCount: markdown.length,
       snippetsCount: snippets.length,
       apiHistoryCount: apiHistory.length,
       environmentsCount: _environmentCount(environments),
+      apiWorkspacesCount: apiWorkspaces.length,
+      apiWorkspaceHistoryCount: apiWorkspaceHistory.length,
+      apiWorkspaceReportsCount: apiWorkspaceReports.length,
       settingsCount: settings.length,
     );
   }

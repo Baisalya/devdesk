@@ -320,6 +320,13 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                     Text('Snippets: ${preview.snippetsCount}'),
                     Text('API history: ${preview.apiHistoryCount}'),
                     Text('Environments: ${preview.environmentsCount}'),
+                    Text('API workspaces: ${preview.apiWorkspacesCount}'),
+                    Text(
+                      'Workspace history: ${preview.apiWorkspaceHistoryCount}',
+                    ),
+                    Text(
+                      'Runner reports: ${preview.apiWorkspaceReportsCount}',
+                    ),
                     Text('Settings: ${preview.settingsCount}'),
                     const SizedBox(height: 12),
                     SegmentedButton<bool>(

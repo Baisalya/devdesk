@@ -5,6 +5,7 @@ class ApiRequest {
   final Map<String, String> headers;
   final Map<String, String> queryParams;
   final String? body;
+  final bool followRedirects;
   final DateTime timestamp;
 
   ApiRequest({
@@ -13,6 +14,7 @@ class ApiRequest {
     this.headers = const {},
     this.queryParams = const {},
     this.body,
+    this.followRedirects = true,
     DateTime? timestamp,
   }) : timestamp = timestamp ?? DateTime.now();
 
@@ -22,6 +24,7 @@ class ApiRequest {
     Map<String, String>? headers,
     Map<String, String>? queryParams,
     String? body,
+    bool? followRedirects,
     DateTime? timestamp,
   }) {
     return ApiRequest(
@@ -30,6 +33,7 @@ class ApiRequest {
       headers: headers ?? this.headers,
       queryParams: queryParams ?? this.queryParams,
       body: body ?? this.body,
+      followRedirects: followRedirects ?? this.followRedirects,
       timestamp: timestamp ?? this.timestamp,
     );
   }
@@ -41,6 +45,7 @@ class ApiRequest {
       'headers': headers,
       'queryParams': queryParams,
       'body': body,
+      'followRedirects': followRedirects,
       'timestamp': timestamp.millisecondsSinceEpoch,
     };
   }
@@ -65,6 +70,7 @@ class ApiRequest {
       queryParams:
           Map<String, String>.from((map['queryParams'] as Map?) ?? const {}),
       body: map['body'] as String?,
+      followRedirects: map['followRedirects'] != false,
       timestamp: DateTime.fromMillisecondsSinceEpoch(
         (map['timestamp'] as int?) ?? DateTime.now().millisecondsSinceEpoch,
       ),
@@ -87,7 +93,8 @@ class ApiRequest {
         other.url == url &&
         _mapsEqual(other.headers, headers) &&
         _mapsEqual(other.queryParams, queryParams) &&
-        other.body == body;
+        other.body == body &&
+        other.followRedirects == followRedirects;
   }
 
   @override
@@ -99,6 +106,7 @@ class ApiRequest {
           _sortedEntryHashes(queryParams),
         ),
         body,
+        followRedirects,
       );
 
   static bool _mapsEqual(Map<String, String> left, Map<String, String> right) {

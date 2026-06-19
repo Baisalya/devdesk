@@ -162,7 +162,11 @@ class ExternalFileDetector {
   static bool looksLikeApiCollection(String content) {
     final decoded = _tryDecodeObject(content);
     if (decoded == null) return false;
-    if (decoded['type'] == 'devdesk_api_collection') return true;
+    if (decoded['type'] == 'devdesk_api_collection' ||
+        decoded['type'] == 'devdesk_api_collection_v2' ||
+        decoded['type'] == 'devdesk_api_workspace') {
+      return true;
+    }
     final requests = decoded['requests'];
     return requests is List &&
         requests.any(

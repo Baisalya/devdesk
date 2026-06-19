@@ -7,6 +7,7 @@ import '../features/markdown/presentation/markdown_page.dart';
 import '../features/readme_generator/presentation/readme_page.dart';
 import '../features/json_tools/presentation/json_page.dart';
 import '../features/api_tester/presentation/api_page.dart';
+import '../features/api_tester/presentation/api_workspaces_page.dart';
 import '../features/jwt_decoder/presentation/jwt_page.dart';
 import '../features/regex_tester/presentation/regex_page.dart';
 import '../features/base64_tool/presentation/base64_page.dart';
@@ -37,6 +38,12 @@ Route<dynamic> generateRoute(RouteSettings settings) {
         ),
       );
     case '/api':
+      return MaterialPageRoute(
+        builder: (_) => ApiWorkspacesPage(
+          initialDocument: _externalFileArgument(settings.arguments),
+        ),
+      );
+    case '/api/quick':
       return MaterialPageRoute(
         builder: (_) => ApiPage(
           initialDocument: _externalFileArgument(settings.arguments),

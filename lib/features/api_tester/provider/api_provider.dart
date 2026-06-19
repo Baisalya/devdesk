@@ -144,7 +144,7 @@ class ApiEnvironmentsState {
   }
 
   static ApiEnvironmentsState defaults() {
-    return const ApiEnvironmentsState(
+    return ApiEnvironmentsState(
       selectedName: 'dev',
       environments: {
         'dev': ApiEnvironment(name: 'dev', baseUrl: ''),
@@ -320,8 +320,12 @@ Future<ApiResponse> executeApiRequest({
   final stopwatch = Stopwatch()..start();
   try {
     final httpRequest = http.Request(request.method.toUpperCase(), uri)
-      ..headers.addAll(request.headers);
-    if ((request.body ?? '').isNotEmpty && request.method != 'GET') {
+      ..headers.addAll(request.headers)
+      ..followRedirects = request.followRedirects;
+    final method = request.method.toUpperCase();
+    if ((request.body ?? '').isNotEmpty &&
+        method != 'GET' &&
+        method != 'HEAD') {
       httpRequest.body = request.body!;
     }
     final streamed = await client.send(httpRequest).timeout(timeout);

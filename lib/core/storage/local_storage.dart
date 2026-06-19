@@ -12,6 +12,10 @@ class LocalStorage {
   static const dashboardBox = 'dashboard';
   static const apiHistoryBox = 'api_history';
   static const apiEnvironmentsBox = 'api_environments';
+  static const apiWorkspacesBox = 'api_workspaces';
+  static const apiWorkspaceHistoryBox = 'api_workspace_history';
+  static const apiWorkspaceReportsBox = 'api_workspace_reports';
+  static const apiWorkspaceMetaBox = 'api_workspace_meta';
   static const snippetsBox = 'snippets';
   static const markdownFilesBox = 'markdown_files';
 
@@ -20,6 +24,10 @@ class LocalStorage {
     dashboardBox,
     apiHistoryBox,
     apiEnvironmentsBox,
+    apiWorkspacesBox,
+    apiWorkspaceHistoryBox,
+    apiWorkspaceReportsBox,
+    apiWorkspaceMetaBox,
     snippetsBox,
     markdownFilesBox,
   ];
@@ -110,6 +118,9 @@ class LocalStorage {
   static Future<Box> _openKnownBox(String name) {
     switch (name) {
       case apiHistoryBox:
+      case apiWorkspacesBox:
+      case apiWorkspaceHistoryBox:
+      case apiWorkspaceReportsBox:
       case snippetsBox:
         return openBox<Map>(name);
       case markdownFilesBox:
