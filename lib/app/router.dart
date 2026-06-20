@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../core/files/external_file.dart';
 import '../features/dashboard/presentation/dashboard_page.dart';
+import '../features/dashboard/presentation/favourites_page.dart';
+import '../features/dashboard/presentation/recent_page.dart';
 import '../features/external_files/presentation/text_file_page.dart';
 import '../features/markdown/presentation/markdown_page.dart';
 import '../features/readme_generator/presentation/readme_page.dart';
@@ -23,6 +25,10 @@ Route<dynamic> generateRoute(RouteSettings settings) {
   switch (settings.name) {
     case '/dashboard':
       return MaterialPageRoute(builder: (_) => const DashboardPage());
+    case '/favourites':
+      return MaterialPageRoute(builder: (_) => const FavouritesPage());
+    case '/recent':
+      return MaterialPageRoute(builder: (_) => const RecentPage());
     case '/markdown':
       return MaterialPageRoute(
         builder: (_) => MarkdownPage(

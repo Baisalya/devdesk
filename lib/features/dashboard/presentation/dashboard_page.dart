@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/constants/tool_list.dart';
 import '../../../core/design/app_breakpoints.dart';
 import '../../../core/design/app_spacing.dart';
 import '../../../core/files/external_file.dart';
@@ -9,34 +8,104 @@ import '../../../core/files/external_file_service.dart';
 import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/app_empty_state.dart';
 import '../../../core/widgets/app_section_header.dart';
-import '../../../core/widgets/app_tool_chip.dart';
-import '../../../core/widgets/tool_card.dart';
 import '../provider/tool_providers.dart';
+import 'widgets/tool_grid.dart';
 
 /// Dashboard page listing all available tools. Includes search, persisted
 /// favourites and persisted recently used tools.
-class DashboardPage extends ConsumerWidget {
+class DashboardPage extends ConsumerStatefulWidget {
   const DashboardPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<DashboardPage> createState() => _DashboardPageState();
+}
+
+class _DashboardPageState extends ConsumerState<DashboardPage> {
+  bool _isSearchActive = false;
+  final _searchController = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _toggleSearch() {
+    setState(() {
+      _isSearchActive = !_isSearchActive;
+      if (!_isSearchActive) {
+        _searchController.clear();
+        ref.read(searchQueryProvider.notifier).state = '';
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final filteredTools = ref.watch(filteredToolsProvider);
     final favourites = ref.watch(favouritesProvider);
-    final recentTools = ref.watch(recentToolsProvider);
     final query = ref.watch(searchQueryProvider);
-    final favouriteTools =
-        tools.where((tool) => favourites.contains(tool.route)).toList();
 
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         title: const Text('DevDesk'),
         actions: [
+          IconButton(
+            icon: Icon(_isSearchActive ? Icons.search_off : Icons.search),
+            tooltip: 'Search Tools',
+            onPressed: _toggleSearch,
+          ),
+          IconButton(
+            icon: const Icon(Icons.star),
+            tooltip: 'Favourites',
+            onPressed: () => Navigator.of(context).pushNamed('/favourites'),
+          ),
+          IconButton(
+            icon: const Icon(Icons.history),
+            tooltip: 'Recent',
+            onPressed: () => Navigator.of(context).pushNamed('/recent'),
+          ),
           IconButton(
             icon: const Icon(Icons.settings),
             tooltip: 'Settings',
             onPressed: () => Navigator.of(context).pushNamed('/settings'),
           ),
         ],
+        bottom: _isSearchActive
+            ? PreferredSize(
+                preferredSize: const Size.fromHeight(64),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.md,
+                    0,
+                    AppSpacing.md,
+                    AppSpacing.md,
+                  ),
+                  child: TextField(
+                    controller: _searchController,
+                    autofocus: true,
+                    decoration: InputDecoration(
+                      hintText: 'Search tools by name or description',
+                      prefixIcon: const Icon(Icons.search),
+                      suffixIcon: query.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear),
+                              onPressed: () {
+                                _searchController.clear();
+                                ref.read(searchQueryProvider.notifier).state =
+                                    '';
+                              },
+                            )
+                          : null,
+                    ),
+                    onChanged: (value) {
+                      ref.read(searchQueryProvider.notifier).state = value;
+                    },
+                  ),
+                ),
+              )
+            : null,
       ),
       body: SafeArea(
         child: LayoutBuilder(
@@ -49,34 +118,18 @@ class DashboardPage extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _DashboardHeader(
-                    isCompact: isCompact,
-                    onOpenFile: () => _openExternalFile(context, ref),
-                    onOpenApi: () => _openTool(context, ref, '/api'),
-                    onOpenJson: () => _openTool(context, ref, '/json'),
-                    onOpenMarkdown: () => _openTool(context, ref, '/markdown'),
-                    onOpenSnippet: () => _openTool(context, ref, '/snippets'),
-                  ),
-                  const SizedBox(height: AppSpacing.xl),
-                  _SearchBar(
-                    query: query,
-                    onChanged: (value) {
-                      ref.read(searchQueryProvider.notifier).state = value;
-                    },
-                  ),
                   if (query.trim().isEmpty) ...[
-                    const SizedBox(height: AppSpacing.xl),
-                    _FavouriteSection(
-                      tools: favouriteTools,
-                      onOpenTool: (route) => _openTool(context, ref, route),
+                    _DashboardHeader(
+                      isCompact: isCompact,
+                      onOpenFile: () => _openExternalFile(context, ref),
+                      onOpenApi: () => _openTool(context, ref, '/api'),
+                      onOpenJson: () => _openTool(context, ref, '/json'),
+                      onOpenMarkdown: () =>
+                          _openTool(context, ref, '/markdown'),
+                      onOpenSnippet: () => _openTool(context, ref, '/snippets'),
                     ),
                     const SizedBox(height: AppSpacing.xl),
-                    _RecentSection(
-                      tools: recentTools,
-                      onOpenTool: (route) => _openTool(context, ref, route),
-                    ),
                   ],
-                  const SizedBox(height: AppSpacing.xl),
                   AppSectionHeader(
                     title: query.trim().isEmpty
                         ? 'All developer tools'
@@ -93,7 +146,7 @@ class DashboardPage extends ConsumerWidget {
                       message: 'Try another name, format, token, API, or file.',
                     )
                   else
-                    _ToolGrid(
+                    ToolGrid(
                       tools: filteredTools,
                       favourites: favourites,
                       onOpenTool: (route) => _openTool(context, ref, route),
@@ -308,177 +361,6 @@ class _QuickAction extends StatelessWidget {
       onPressed: onPressed,
       icon: Icon(icon),
       label: Text(label),
-    );
-  }
-}
-
-class _SearchBar extends StatelessWidget {
-  final String query;
-  final ValueChanged<String> onChanged;
-
-  const _SearchBar({required this.query, required this.onChanged});
-
-  @override
-  Widget build(BuildContext context) {
-    return TextField(
-      key: const ValueKey('dashboard-search'),
-      controller: TextEditingController(text: query)
-        ..selection = TextSelection.collapsed(offset: query.length),
-      decoration: const InputDecoration(
-        hintText: 'Search tools by name or description',
-        prefixIcon: Icon(Icons.search),
-      ),
-      onChanged: onChanged,
-    );
-  }
-}
-
-class _FavouriteSection extends StatelessWidget {
-  final List<DevTool> tools;
-  final ValueChanged<String> onOpenTool;
-
-  const _FavouriteSection({
-    required this.tools,
-    required this.onOpenTool,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return AppCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const AppSectionHeader(
-            title: 'Favourites',
-            subtitle: 'Pin tools you use constantly.',
-          ),
-          const SizedBox(height: AppSpacing.md),
-          if (tools.isEmpty)
-            Text(
-              'Tap the star on any tool to keep it here.',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-            )
-          else
-            Wrap(
-              spacing: AppSpacing.xs,
-              runSpacing: AppSpacing.xs,
-              children: [
-                for (final tool in tools)
-                  AppToolChip(
-                    icon: tool.icon,
-                    label: tool.name,
-                    onPressed: () => onOpenTool(tool.route),
-                  ),
-              ],
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _RecentSection extends StatelessWidget {
-  final List<DevTool> tools;
-  final ValueChanged<String> onOpenTool;
-
-  const _RecentSection({
-    required this.tools,
-    required this.onOpenTool,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return AppCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const AppSectionHeader(
-            title: 'Recent',
-            subtitle: 'Quickly jump back into your last tools.',
-          ),
-          const SizedBox(height: AppSpacing.md),
-          if (tools.isEmpty)
-            Text(
-              'Your recently opened tools and files will appear here.',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-            )
-          else
-            Wrap(
-              spacing: AppSpacing.xs,
-              runSpacing: AppSpacing.xs,
-              children: [
-                for (final tool in tools)
-                  AppToolChip(
-                    icon: tool.icon,
-                    label: tool.name,
-                    onPressed: () => onOpenTool(tool.route),
-                  ),
-              ],
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ToolGrid extends StatelessWidget {
-  final List<DevTool> tools;
-  final Set<String> favourites;
-  final ValueChanged<String> onOpenTool;
-  final ValueChanged<String> onToggleFavourite;
-
-  const _ToolGrid({
-    required this.tools,
-    required this.favourites,
-    required this.onOpenTool,
-    required this.onToggleFavourite,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final width = constraints.maxWidth;
-        final crossAxisCount = width >= 1600
-            ? 4
-            : width >= 900
-                ? 3
-                : width >= AppBreakpoints.compact
-                    ? 2
-                    : 1;
-        final childAspectRatio = switch (crossAxisCount) {
-          1 => 3.2,
-          2 => 2.55,
-          3 => 2.45,
-          _ => 2.25,
-        };
-        return GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: tools.length,
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: crossAxisCount,
-            crossAxisSpacing: AppSpacing.md,
-            mainAxisSpacing: AppSpacing.md,
-            childAspectRatio: childAspectRatio,
-          ),
-          itemBuilder: (context, index) {
-            final tool = tools[index];
-            final isFav = favourites.contains(tool.route);
-            return ToolCard(
-              tool: tool,
-              favourite: isFav,
-              onTap: () => onOpenTool(tool.route),
-              onFavouritePressed: () => onToggleFavourite(tool.route),
-              dense: crossAxisCount > 2,
-            );
-          },
-        );
-      },
     );
   }
 }
