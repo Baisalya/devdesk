@@ -19,6 +19,9 @@ import '../../../core/widgets/app_error_state.dart';
 import '../../../core/widgets/app_loading_state.dart';
 import '../models/api_history_entry.dart';
 import '../models/api_request.dart';
+import '../../diff_checker/presentation/diff_page.dart';
+import '../../diff_checker/provider/diff_provider.dart';
+import '../../diff_checker/models/diff_models.dart';
 import '../models/api_response.dart';
 import '../provider/api_provider.dart';
 import '../utils/api_collection_utils.dart';
@@ -1101,6 +1104,19 @@ class _ResponseSection extends ConsumerWidget {
                       AppBadge(
                         label: sizeLabel,
                         icon: Icons.storage,
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      IconButton(
+                        icon: const Icon(Icons.compare_arrows),
+                        tooltip: 'Compare with...',
+                        onPressed: () {
+                          ref.read(diffRightProvider.notifier).state = currentResponse.body;
+                          ref.read(diffSourceRightProvider.notifier).state = DiffSource.api;
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const DiffPage()),
+                          );
+                        },
                       ),
                     ],
                   ),

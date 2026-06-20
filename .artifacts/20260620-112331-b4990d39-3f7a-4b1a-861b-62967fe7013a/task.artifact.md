@@ -1,0 +1,33 @@
+# task.artifact.md
+
+- [ ] Upgrade Diff Checker to Diff Workspace
+    - [/] Initial Research and Exploration
+    - [ ] Define Data Models (DiffWorkspace, DiffSource, etc.)
+    - [ ] Implement Advanced Diff Engine
+        - [ ] Side-by-side and Inline views
+        - [ ] Line numbers and Highlighting
+        - [ ] JSON-specific diff (format/minify/tree)
+        - [ ] Markdown/Code diff
+    - [ ] Implement File and Folder Comparison
+        - [ ] Windows local folder compare
+        - [ ] Android ZIP-based folder compare
+    - [ ] Implement Git Integration (Windows)
+        - [ ] Read-only Git commands
+        - [ ] Changed files list
+    - [ ] Implement GitHub Integration
+        - [ ] Public repo ZIP fetch
+        - [ ] File/Branch compare
+    - [ ] Implement Security and Secret Masking
+        - [ ] Secret detection logic
+        - [ ] Masking in UI and exports
+    - [ ] Implement Patch and Report Generation
+        - [ ] Unified diff patch
+        - [ ] Export .txt/.md reports
+    - [ ] Integration with API Tester and Snippets
+    - [ ] UI Refactoring
+        - [ ] Desktop Multi-pane Layout
+        - [ ] Mobile Tabbed Layout
+    - [ ] Verification and Testing
+        - [ ] Unit tests for diff logic
+        - [ ] Widget tests for new UI
+        - [ ] Integration tests

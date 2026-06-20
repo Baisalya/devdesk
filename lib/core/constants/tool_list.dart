@@ -79,10 +79,10 @@ const List<DevTool> tools = [
     description: 'Generate v4 UUIDs.',
   ),
   DevTool(
-    name: 'Diff Checker',
+    name: 'Diff Workspace',
     route: '/diff',
-    icon: Icons.compare_arrows,
-    description: 'Compare two text blocks.',
+    icon: Icons.difference,
+    description: 'Compare text, JSON, files, folders, Git, and GitHub.',
   ),
   DevTool(
     name: 'Snippets/Notes',
