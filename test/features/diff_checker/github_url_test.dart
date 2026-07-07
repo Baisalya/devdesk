@@ -11,14 +11,16 @@ void main() {
     });
 
     test('Parses branch tree URL', () {
-      final ref = GitHubService.parseUrl('https://github.com/flutter/flutter/tree/master');
+      final ref = GitHubService.parseUrl(
+          'https://github.com/flutter/flutter/tree/master');
       expect(ref?.owner, 'flutter');
       expect(ref?.repo, 'flutter');
       expect(ref?.branch, 'master');
     });
 
     test('Parses blob file URL', () {
-      final ref = GitHubService.parseUrl('https://github.com/flutter/flutter/blob/master/README.md');
+      final ref = GitHubService.parseUrl(
+          'https://github.com/flutter/flutter/blob/master/README.md');
       expect(ref?.owner, 'flutter');
       expect(ref?.repo, 'flutter');
       expect(ref?.branch, 'master');

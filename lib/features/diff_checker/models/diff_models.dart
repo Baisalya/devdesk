@@ -1,4 +1,3 @@
-
 enum DiffSource {
   text,
   file,

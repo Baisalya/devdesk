@@ -65,6 +65,22 @@ class ExternalFileService {
     );
   }
 
+  static Future<String?> saveBytesAs({
+    required String suggestedName,
+    required Uint8List bytes,
+    List<String>? allowedExtensions,
+    String dialogTitle = 'Save file',
+  }) {
+    return FilePicker.saveFile(
+      dialogTitle: dialogTitle,
+      fileName: suggestedName,
+      type: allowedExtensions == null ? FileType.any : FileType.custom,
+      allowedExtensions: allowedExtensions,
+      bytes: bytes,
+      lockParentWindow: true,
+    );
+  }
+
   static Future<void> overwriteOriginal(
     ExternalFileDocument document,
     String content,

@@ -11,6 +11,8 @@ void main() {
     // Initially, Markdown Editor should be visible
     expect(find.text('Markdown Editor'), findsOneWidget);
     // Enter search for 'UUID'
+    await tester.tap(find.byTooltip('Search Tools'));
+    await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).first, 'UUID');
     await tester.pumpAndSettle();
     // Now Markdown Editor should not be found

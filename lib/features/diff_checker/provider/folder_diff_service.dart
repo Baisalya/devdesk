@@ -47,18 +47,30 @@ class FolderDiffService {
       final inB = filesB.containsKey(path);
 
       if (inA && !inB) {
-        result.add(FolderDiffEntry(path: path, isDirectory: filesA[path]!.statSync().type == FileSystemEntityType.directory, status: FileStatus.removed));
+        result.add(FolderDiffEntry(
+            path: path,
+            isDirectory:
+                filesA[path]!.statSync().type == FileSystemEntityType.directory,
+            status: FileStatus.removed));
       } else if (!inA && inB) {
-        result.add(FolderDiffEntry(path: path, isDirectory: filesB[path]!.statSync().type == FileSystemEntityType.directory, status: FileStatus.added));
+        result.add(FolderDiffEntry(
+            path: path,
+            isDirectory:
+                filesB[path]!.statSync().type == FileSystemEntityType.directory,
+            status: FileStatus.added));
       } else {
         // Both exist, compare content for files
         if (filesA[path]!.statSync().type == FileSystemEntityType.file) {
           final contentA = (filesA[path] as File).readAsBytesSync();
           final contentB = (filesB[path] as File).readAsBytesSync();
           final changed = !_bytesEqual(contentA, contentB);
-          result.add(FolderDiffEntry(path: path, isDirectory: false, status: changed ? FileStatus.changed : FileStatus.unchanged));
+          result.add(FolderDiffEntry(
+              path: path,
+              isDirectory: false,
+              status: changed ? FileStatus.changed : FileStatus.unchanged));
         } else {
-          result.add(FolderDiffEntry(path: path, isDirectory: true, status: FileStatus.unchanged));
+          result.add(FolderDiffEntry(
+              path: path, isDirectory: true, status: FileStatus.unchanged));
         }
       }
     }
@@ -85,17 +97,28 @@ class FolderDiffService {
       final inB = filesB.containsKey(path);
 
       if (inA && !inB) {
-        result.add(FolderDiffEntry(path: path, isDirectory: filesA[path]!.content == null, status: FileStatus.removed));
+        result.add(FolderDiffEntry(
+            path: path,
+            isDirectory: filesA[path]!.content == null,
+            status: FileStatus.removed));
       } else if (!inA && inB) {
-        result.add(FolderDiffEntry(path: path, isDirectory: filesB[path]!.content == null, status: FileStatus.added));
+        result.add(FolderDiffEntry(
+            path: path,
+            isDirectory: filesB[path]!.content == null,
+            status: FileStatus.added));
       } else {
         final fileA = filesA[path]!;
         final fileB = filesB[path]!;
         if (fileA.content != null && fileB.content != null) {
-          final changed = !_bytesEqual(fileA.content as List<int>, fileB.content as List<int>);
-          result.add(FolderDiffEntry(path: path, isDirectory: false, status: changed ? FileStatus.changed : FileStatus.unchanged));
+          final changed = !_bytesEqual(
+              fileA.content as List<int>, fileB.content as List<int>);
+          result.add(FolderDiffEntry(
+              path: path,
+              isDirectory: false,
+              status: changed ? FileStatus.changed : FileStatus.unchanged));
         } else {
-          result.add(FolderDiffEntry(path: path, isDirectory: true, status: FileStatus.unchanged));
+          result.add(FolderDiffEntry(
+              path: path, isDirectory: true, status: FileStatus.unchanged));
         }
       }
     }
@@ -103,7 +126,8 @@ class FolderDiffService {
     return result;
   }
 
-  static Map<String, FileSystemEntity> _listAllFiles(Directory dir, Set<String> ignores) {
+  static Map<String, FileSystemEntity> _listAllFiles(
+      Directory dir, Set<String> ignores) {
     final result = <String, FileSystemEntity>{};
     final rootPath = dir.path;
 

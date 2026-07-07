@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/design/app_breakpoints.dart';
 import '../../../core/design/app_colors.dart';
@@ -11,16 +12,18 @@ import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/app_empty_state.dart';
 import '../../../core/widgets/app_section_header.dart';
 import '../../markdown/provider/markdown_provider.dart';
+import '../../markdown/vault/provider/vault_provider.dart';
 
 /// Page for generating README.md files by filling out a form.
-class ReadmeGeneratorPage extends StatefulWidget {
+class ReadmeGeneratorPage extends ConsumerStatefulWidget {
   const ReadmeGeneratorPage({super.key});
 
   @override
-  State<ReadmeGeneratorPage> createState() => _ReadmeGeneratorPageState();
+  ConsumerState<ReadmeGeneratorPage> createState() =>
+      _ReadmeGeneratorPageState();
 }
 
-class _ReadmeGeneratorPageState extends State<ReadmeGeneratorPage>
+class _ReadmeGeneratorPageState extends ConsumerState<ReadmeGeneratorPage>
     with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   late final TabController _tabController;
@@ -144,6 +147,28 @@ class _ReadmeGeneratorPageState extends State<ReadmeGeneratorPage>
     }
   }
 
+  Future<void> _saveToVault() async {
+    if (_generated.isEmpty) return;
+    final title = _nameController.text.trim().isEmpty
+        ? 'README'
+        : '${_nameController.text.trim()} README';
+    final note = await ref.read(vaultNotesProvider.notifier).createNote(
+          title: title,
+          content: _generated,
+          folderPath: 'Generated',
+        );
+    ref.read(selectedNoteIdProvider.notifier).state = note.id;
+    final tabs = [...ref.read(openedNoteIdsProvider)];
+    if (!tabs.contains(note.id)) {
+      tabs.add(note.id);
+      ref.read(openedNoteIdsProvider.notifier).state = tabs;
+    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Saved "${note.title}" to Markdown Vault')),
+    );
+  }
+
   Future<void> _exportReadme() async {
     if (_generated.isEmpty) return;
     final path = await ExternalFileService.saveTextAs(
@@ -183,6 +208,7 @@ class _ReadmeGeneratorPageState extends State<ReadmeGeneratorPage>
             generatedController: _generatedController,
             onCopy: _copyToClipboard,
             onSave: _saveAsMarkdown,
+            onSaveVault: _saveToVault,
             onExport: _exportReadme,
           );
           if (isWide) {
@@ -354,6 +380,7 @@ class _ReadmeOutput extends StatelessWidget {
   final TextEditingController generatedController;
   final VoidCallback onCopy;
   final VoidCallback onSave;
+  final VoidCallback onSaveVault;
   final VoidCallback onExport;
 
   const _ReadmeOutput({
@@ -361,6 +388,7 @@ class _ReadmeOutput extends StatelessWidget {
     required this.generatedController,
     required this.onCopy,
     required this.onSave,
+    required this.onSaveVault,
     required this.onExport,
   });
 
@@ -394,13 +422,18 @@ class _ReadmeOutput extends StatelessWidget {
                       label: const Text('Save as Markdown'),
                     ),
                     OutlinedButton.icon(
+                      onPressed: generated.isEmpty ? null : onSaveVault,
+                      icon: const Icon(Icons.folder_copy),
+                      label: const Text('Save to Vault'),
+                    ),
+                    OutlinedButton.icon(
                       onPressed: generated.isEmpty ? null : onExport,
                       icon: const Icon(Icons.file_upload),
                       label: const Text('Export README.md'),
                     ),
                   ],
                 );
-                if (constraints.maxWidth < 700) {
+                if (constraints.maxWidth < 900) {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [

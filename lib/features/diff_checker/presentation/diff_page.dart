@@ -27,11 +27,12 @@ class DiffPage extends ConsumerStatefulWidget {
   ConsumerState<DiffPage> createState() => _DiffPageState();
 }
 
-class _DiffPageState extends ConsumerState<DiffPage> with SingleTickerProviderStateMixin {
+class _DiffPageState extends ConsumerState<DiffPage>
+    with SingleTickerProviderStateMixin {
   late final TextEditingController _leftController;
   late final TextEditingController _rightController;
   late final TabController _tabController;
-  
+
   final List<DiffSession> _history = [];
 
   @override
@@ -40,7 +41,7 @@ class _DiffPageState extends ConsumerState<DiffPage> with SingleTickerProviderSt
     _leftController = TextEditingController(text: ref.read(diffLeftProvider));
     _rightController = TextEditingController(text: ref.read(diffRightProvider));
     _tabController = TabController(length: 4, vsync: this);
-    
+
     _leftController.addListener(() {
       ref.read(diffLeftProvider.notifier).state = _leftController.text;
     });
@@ -73,7 +74,7 @@ class _DiffPageState extends ConsumerState<DiffPage> with SingleTickerProviderSt
           final proceed = await _showSecretWarning(context);
           if (proceed != true) return;
         }
-        
+
         if (isLeft) {
           _leftController.text = doc.content;
           ref.read(diffSourceLeftProvider.notifier).state = DiffSource.file;
@@ -84,7 +85,8 @@ class _DiffPageState extends ConsumerState<DiffPage> with SingleTickerProviderSt
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.toString())));
       }
     }
   }
@@ -99,8 +101,12 @@ class _DiffPageState extends ConsumerState<DiffPage> with SingleTickerProviderSt
           'DevDesk processes everything locally, but be careful when sharing or exporting diff reports.',
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Proceed')),
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel')),
+          FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Proceed')),
         ],
       ),
     );
@@ -131,7 +137,8 @@ class _DiffPageState extends ConsumerState<DiffPage> with SingleTickerProviderSt
                 onSelect: (session) {
                   _leftController.text = session.left.content;
                   _rightController.text = session.right.content;
-                  ref.read(diffOptionsProvider.notifier).state = session.options;
+                  ref.read(diffOptionsProvider.notifier).state =
+                      session.options;
                   computeDiff(ref);
                   _tabController.animateTo(0);
                 },
@@ -161,7 +168,7 @@ class _DiffPageState extends ConsumerState<DiffPage> with SingleTickerProviderSt
   Widget _buildTextTab() {
     final diffs = ref.watch(diffResultProvider);
     final summary = ref.watch(diffSummaryProvider);
-    
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final isWide = constraints.maxWidth >= AppBreakpoints.medium;
@@ -174,16 +181,28 @@ class _DiffPageState extends ConsumerState<DiffPage> with SingleTickerProviderSt
                 child: isWide
                     ? Row(
                         children: [
-                          Expanded(child: _Editor(label: 'Source A', controller: _leftController)),
+                          Expanded(
+                              child: _Editor(
+                                  label: 'Source A',
+                                  controller: _leftController)),
                           const SizedBox(width: AppSpacing.md),
-                          Expanded(child: _Editor(label: 'Source B', controller: _rightController)),
+                          Expanded(
+                              child: _Editor(
+                                  label: 'Source B',
+                                  controller: _rightController)),
                         ],
                       )
                     : Column(
                         children: [
-                          Expanded(child: _Editor(label: 'Source A', controller: _leftController)),
+                          Expanded(
+                              child: _Editor(
+                                  label: 'Source A',
+                                  controller: _leftController)),
                           const SizedBox(height: AppSpacing.md),
-                          Expanded(child: _Editor(label: 'Source B', controller: _rightController)),
+                          Expanded(
+                              child: _Editor(
+                                  label: 'Source B',
+                                  controller: _rightController)),
                         ],
                       ),
               ),
@@ -209,9 +228,12 @@ class _DiffPageState extends ConsumerState<DiffPage> with SingleTickerProviderSt
                     PopupMenuButton<String>(
                       onSelected: _handleExport,
                       itemBuilder: (context) => [
-                        const PopupMenuItem(value: 'txt', child: Text('Export as Text')),
-                        const PopupMenuItem(value: 'md', child: Text('Export as Markdown')),
-                        const PopupMenuItem(value: 'patch', child: Text('Copy Patch')),
+                        const PopupMenuItem(
+                            value: 'txt', child: Text('Export as Text')),
+                        const PopupMenuItem(
+                            value: 'md', child: Text('Export as Markdown')),
+                        const PopupMenuItem(
+                            value: 'patch', child: Text('Copy Patch')),
                       ],
                       child: const OutlinedButton(
                         onPressed: null,
@@ -245,7 +267,8 @@ class _DiffPageState extends ConsumerState<DiffPage> with SingleTickerProviderSt
           children: [
             Icon(Icons.file_copy, size: 64, color: colorScheme.primary),
             const SizedBox(height: AppSpacing.md),
-            Text('File & Folder Comparison', style: Theme.of(context).textTheme.headlineSmall),
+            Text('File & Folder Comparison',
+                style: Theme.of(context).textTheme.headlineSmall),
             const SizedBox(height: AppSpacing.sm),
             const Text(
               'Select two files or two ZIP archives to compare their contents.',
@@ -269,14 +292,14 @@ class _DiffPageState extends ConsumerState<DiffPage> with SingleTickerProviderSt
               ],
             ),
             if (Platform.isWindows) ...[
-               const SizedBox(height: AppSpacing.lg),
-               const Divider(),
-               const SizedBox(height: AppSpacing.lg),
-               FilledButton.icon(
-                 onPressed: () => _compareGit(context),
-                 icon: const Icon(Icons.account_tree),
-                 label: const Text('Open Git Workspace'),
-               ),
+              const SizedBox(height: AppSpacing.lg),
+              const Divider(),
+              const SizedBox(height: AppSpacing.lg),
+              FilledButton.icon(
+                onPressed: () => _compareGit(context),
+                icon: const Icon(Icons.account_tree),
+                label: const Text('Open Git Workspace'),
+              ),
             ],
           ],
         ),
@@ -296,7 +319,8 @@ class _DiffPageState extends ConsumerState<DiffPage> with SingleTickerProviderSt
           children: [
             Icon(Icons.cloud_download, size: 64, color: colorScheme.primary),
             const SizedBox(height: AppSpacing.md),
-            Text('GitHub Integration', style: Theme.of(context).textTheme.headlineSmall),
+            Text('GitHub Integration',
+                style: Theme.of(context).textTheme.headlineSmall),
             const SizedBox(height: AppSpacing.md),
             TextField(
               controller: urlController,
@@ -311,33 +335,40 @@ class _DiffPageState extends ConsumerState<DiffPage> with SingleTickerProviderSt
               onPressed: () async {
                 final ref = GitHubService.parseUrl(urlController.text);
                 if (ref == null) {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invalid GitHub URL')));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Invalid GitHub URL')));
                   return;
                 }
-                
+
                 showDialog(
                   context: context,
                   barrierDismissible: false,
-                  builder: (context) => const Center(child: CircularProgressIndicator()),
+                  builder: (context) =>
+                      const Center(child: CircularProgressIndicator()),
                 );
-                
+
                 try {
                   final content = await GitHubService.fetchFileContent(ref);
                   if (!mounted) return;
                   Navigator.pop(context); // Close loading
-                  
+
                   if (content != null) {
                     _rightController.text = content;
-                    this.ref.read(diffSourceRightProvider.notifier).state = DiffSource.github;
+                    this.ref.read(diffSourceRightProvider.notifier).state =
+                        DiffSource.github;
                     _tabController.animateTo(0);
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('File fetched from GitHub')));
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                        content: Text('File fetched from GitHub')));
                   } else {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not fetch file or ZIP comparison not yet implemented for UI')));
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                        content: Text(
+                            'Could not fetch file or ZIP comparison not yet implemented for UI')));
                   }
                 } catch (e) {
                   if (mounted) {
                     Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+                    ScaffoldMessenger.of(context)
+                        .showSnackBar(SnackBar(content: Text(e.toString())));
                   }
                 }
               },
@@ -361,12 +392,15 @@ class _DiffPageState extends ConsumerState<DiffPage> with SingleTickerProviderSt
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('Diff Options', style: Theme.of(context).textTheme.titleLarge),
+                Text('Diff Options',
+                    style: Theme.of(context).textTheme.titleLarge),
                 const SizedBox(height: AppSpacing.md),
                 SwitchListTile(
                   title: const Text('Ignore Whitespace'),
                   value: currentOptions.ignoreWhitespace,
-                  onChanged: (val) => ref.read(diffOptionsProvider.notifier).state = DiffOptions(
+                  onChanged: (val) => ref
+                      .read(diffOptionsProvider.notifier)
+                      .state = DiffOptions(
                     ignoreWhitespace: val,
                     ignoreCase: currentOptions.ignoreCase,
                     ignoreEmptyLines: currentOptions.ignoreEmptyLines,
@@ -376,7 +410,9 @@ class _DiffPageState extends ConsumerState<DiffPage> with SingleTickerProviderSt
                 SwitchListTile(
                   title: const Text('Ignore Case'),
                   value: currentOptions.ignoreCase,
-                  onChanged: (val) => ref.read(diffOptionsProvider.notifier).state = DiffOptions(
+                  onChanged: (val) => ref
+                      .read(diffOptionsProvider.notifier)
+                      .state = DiffOptions(
                     ignoreWhitespace: currentOptions.ignoreWhitespace,
                     ignoreCase: val,
                     ignoreEmptyLines: currentOptions.ignoreEmptyLines,
@@ -386,7 +422,9 @@ class _DiffPageState extends ConsumerState<DiffPage> with SingleTickerProviderSt
                 SwitchListTile(
                   title: const Text('Normalize JSON Key Order'),
                   value: currentOptions.jsonKeyOrderIgnore,
-                  onChanged: (val) => ref.read(diffOptionsProvider.notifier).state = DiffOptions(
+                  onChanged: (val) => ref
+                      .read(diffOptionsProvider.notifier)
+                      .state = DiffOptions(
                     ignoreWhitespace: currentOptions.ignoreWhitespace,
                     ignoreCase: currentOptions.ignoreCase,
                     ignoreEmptyLines: currentOptions.ignoreEmptyLines,
@@ -404,33 +442,41 @@ class _DiffPageState extends ConsumerState<DiffPage> with SingleTickerProviderSt
   void _saveToHistory() {
     final summary = ref.read(diffSummaryProvider);
     if (summary == null) return;
-    
+
     final session = DiffSession(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       title: 'Comparison at ${_formatTime(DateTime.now())}',
-      left: DiffContent(content: _leftController.text, source: ref.read(diffSourceLeftProvider)),
-      right: DiffContent(content: _rightController.text, source: ref.read(diffSourceRightProvider)),
+      left: DiffContent(
+          content: _leftController.text,
+          source: ref.read(diffSourceLeftProvider)),
+      right: DiffContent(
+          content: _rightController.text,
+          source: ref.read(diffSourceRightProvider)),
       options: ref.read(diffOptionsProvider),
       createdAt: DateTime.now(),
       summary: summary,
     );
-    
+
     setState(() {
       _history.insert(0, session);
     });
   }
 
-  String _formatTime(DateTime date) => '${date.hour}:${date.minute}:${date.second}';
+  String _formatTime(DateTime date) =>
+      '${date.hour}:${date.minute}:${date.second}';
 
   void _handleExport(String format) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Exporting as $format...')));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text('Exporting as $format...')));
   }
 
   Future<void> _compareGit(BuildContext context) async {
     final installed = await GitService.isGitInstalled();
     if (!installed) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Git is not installed or not in PATH')));
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Git is not installed or not in PATH')),
+      );
       return;
     }
   }
@@ -494,9 +540,13 @@ class _DiffResultPanel extends StatelessWidget {
                 spacing: AppSpacing.xs,
                 runSpacing: AppSpacing.xs,
                 children: [
-                  AppBadge(label: 'Added ${summary!.added}', color: Colors.green),
-                  AppBadge(label: 'Removed ${summary!.removed}', color: Colors.red),
-                  AppBadge(label: 'Blocks ${summary!.changedBlocks}', color: Colors.blue),
+                  AppBadge(
+                      label: 'Added ${summary!.added}', color: Colors.green),
+                  AppBadge(
+                      label: 'Removed ${summary!.removed}', color: Colors.red),
+                  AppBadge(
+                      label: 'Blocks ${summary!.changedBlocks}',
+                      color: Colors.blue),
                 ],
               ),
             ),

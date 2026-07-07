@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:diff_match_patch/diff_match_patch.dart' as dmp;
-import 'package:diff_match_patch/src/patch.dart' as p;
 import '../../features/diff_checker/models/diff_models.dart';
 import 'json_utils.dart';
 
@@ -43,7 +42,8 @@ class DiffUtils {
     }
 
     if (options.ignoreEmptyLines) {
-      result = result.split('\n').where((line) => line.trim().isNotEmpty).join('\n');
+      result =
+          result.split('\n').where((line) => line.trim().isNotEmpty).join('\n');
     }
 
     return result;
@@ -82,7 +82,7 @@ class DiffUtils {
   static String generatePatch(String oldText, String newText) {
     final differ = dmp.DiffMatchPatch();
     final patches = differ.patch(oldText, newText);
-    return p.patchToText(patches);
+    return dmp.patchToText(patches);
   }
 
   /// Calculates a summary from a list of diffs.

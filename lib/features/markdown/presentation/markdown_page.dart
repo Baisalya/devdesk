@@ -698,7 +698,7 @@ class _MarkdownPreview extends StatelessWidget {
       title: 'Preview',
       subtitle: 'Rendered document',
       child: Markdown(
-        data: data,
+        data: '$data\n\n',
         padding: const EdgeInsets.all(AppSpacing.xl),
         styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
           p: Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.55),

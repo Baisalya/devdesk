@@ -28,7 +28,8 @@ class DiffHistoryPanel extends ConsumerWidget {
     return ListView.separated(
       padding: const EdgeInsets.all(AppSpacing.md),
       itemCount: sessions.length,
-      separatorBuilder: (context, index) => const SizedBox(height: AppSpacing.sm),
+      separatorBuilder: (context, index) =>
+          const SizedBox(height: AppSpacing.sm),
       itemBuilder: (context, index) {
         final session = sessions[index];
         return AppCard(
@@ -75,7 +76,7 @@ class DiffHistoryPanel extends ConsumerWidget {
 
   String _formatDate(DateTime date) {
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')} '
-           '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+        '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
   }
 }
 
@@ -101,9 +102,9 @@ class _SummaryBadge extends StatelessWidget {
       child: Text(
         label,
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: textColor,
-          fontWeight: FontWeight.bold,
-        ),
+              color: textColor,
+              fontWeight: FontWeight.bold,
+            ),
       ),
     );
   }

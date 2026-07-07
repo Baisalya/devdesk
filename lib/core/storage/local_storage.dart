@@ -18,6 +18,8 @@ class LocalStorage {
   static const apiWorkspaceMetaBox = 'api_workspace_meta';
   static const snippetsBox = 'snippets';
   static const markdownFilesBox = 'markdown_files';
+  static const vaultNotesBox = 'vault_notes';
+  static const vaultMetadataBox = 'vault_metadata';
 
   static const knownBoxes = <String>[
     settingsBox,
@@ -30,6 +32,8 @@ class LocalStorage {
     apiWorkspaceMetaBox,
     snippetsBox,
     markdownFilesBox,
+    vaultNotesBox,
+    vaultMetadataBox,
   ];
 
   /// Initialize Hive and register adapters. Call this once at app startup.
@@ -125,6 +129,10 @@ class LocalStorage {
         return openBox<Map>(name);
       case markdownFilesBox:
         return openBox<String>(name);
+      case vaultNotesBox:
+        return openBox<Map>(name);
+      case vaultMetadataBox:
+        return openBox<dynamic>(name);
       default:
         return openBox<dynamic>(name);
     }

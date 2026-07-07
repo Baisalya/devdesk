@@ -14,7 +14,13 @@ class SecretUtils {
   ];
 
   static final RegExp _genericSecretPattern = RegExp(
-    r'(?:api_key|token|secret|password|authorization|private_key|client_secret|access_key)["' "'" r']?\s*[:=]\s*["' "'" r']?([a-zA-Z0-9_\-\.\/]{8,})["' "'" r']?',
+    r'(?:api_key|token|secret|password|authorization|private_key|client_secret|access_key)["'
+    "'"
+    r']?\s*[:=]\s*["'
+    "'"
+    r']?([a-zA-Z0-9_\-\.\/]{8,})["'
+    "'"
+    r']?',
     caseSensitive: false,
   );
 
@@ -22,7 +28,9 @@ class SecretUtils {
   static bool containsSecret(String text, {String? fileName}) {
     if (fileName != null) {
       final lowerName = fileName.toLowerCase();
-      if (lowerName == '.env' || lowerName.endsWith('.env') || lowerName.contains('.env.')) {
+      if (lowerName == '.env' ||
+          lowerName.endsWith('.env') ||
+          lowerName.contains('.env.')) {
         return true;
       }
     }
@@ -50,10 +58,10 @@ class SecretUtils {
   /// Checks if a file name indicates a sensitive file.
   static bool isSensitiveFile(String fileName) {
     final lower = fileName.toLowerCase();
-    return lower == '.env' || 
-           lower.endsWith('.pem') || 
-           lower.endsWith('.key') || 
-           lower.endsWith('.p12') ||
-           lower.endsWith('.jks');
+    return lower == '.env' ||
+        lower.endsWith('.pem') ||
+        lower.endsWith('.key') ||
+        lower.endsWith('.p12') ||
+        lower.endsWith('.jks');
   }
 }

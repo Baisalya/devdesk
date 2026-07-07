@@ -6,6 +6,7 @@ import '../features/dashboard/presentation/favourites_page.dart';
 import '../features/dashboard/presentation/recent_page.dart';
 import '../features/external_files/presentation/text_file_page.dart';
 import '../features/markdown/presentation/markdown_page.dart';
+import '../features/markdown/vault/presentation/vault_page.dart';
 import '../features/readme_generator/presentation/readme_page.dart';
 import '../features/json_tools/presentation/json_page.dart';
 import '../features/api_tester/presentation/api_page.dart';
@@ -29,6 +30,8 @@ Route<dynamic> generateRoute(RouteSettings settings) {
       return MaterialPageRoute(builder: (_) => const FavouritesPage());
     case '/recent':
       return MaterialPageRoute(builder: (_) => const RecentPage());
+    case '/vault':
+      return MaterialPageRoute(builder: (_) => const VaultPage());
     case '/markdown':
       return MaterialPageRoute(
         builder: (_) => MarkdownPage(

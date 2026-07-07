@@ -19,10 +19,16 @@ class DevTool {
 /// dashboard UI and can be extended with new utilities.
 const List<DevTool> tools = [
   DevTool(
+    name: 'Markdown Vault',
+    route: '/vault',
+    icon: Icons.folder_copy,
+    description: 'Local markdown vault with folders, backlinks and previews.',
+  ),
+  DevTool(
     name: 'Markdown Editor',
     route: '/markdown',
     icon: Icons.edit_document,
-    description: 'Create, edit and preview markdown.',
+    description: 'Open, edit and save standalone markdown files.',
   ),
   DevTool(
     name: 'README Generator',

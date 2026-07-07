@@ -13,7 +13,8 @@ class GitHubRepoRef {
     this.path,
   });
 
-  String get zipUrl => 'https://github.com/$owner/$repo/archive/refs/heads/${branch ?? 'main'}.zip';
+  String get zipUrl =>
+      'https://github.com/$owner/$repo/archive/refs/heads/${branch ?? 'main'}.zip';
 }
 
 class GitHubService {
@@ -31,21 +32,24 @@ class GitHubService {
       String? branch;
       String? path;
 
-      if (segments.length >= 4 && (segments[2] == 'tree' || segments[2] == 'blob')) {
+      if (segments.length >= 4 &&
+          (segments[2] == 'tree' || segments[2] == 'blob')) {
         branch = segments[3];
         if (segments.length > 4) {
           path = segments.sublist(4).join('/');
         }
       }
 
-      return GitHubRepoRef(owner: owner, repo: repo, branch: branch, path: path);
+      return GitHubRepoRef(
+          owner: owner, repo: repo, branch: branch, path: path);
     } catch (_) {
       return null;
     }
   }
 
   /// Fetches the ZIP archive of a public repository.
-  static Future<List<int>?> fetchRepoZip(GitHubRepoRef ref, {String? token}) async {
+  static Future<List<int>?> fetchRepoZip(GitHubRepoRef ref,
+      {String? token}) async {
     final headers = <String, String>{};
     if (token != null && token.isNotEmpty) {
       headers['Authorization'] = 'token $token';
@@ -59,10 +63,12 @@ class GitHubService {
   }
 
   /// Fetches a single file content from GitHub via Raw URL.
-  static Future<String?> fetchFileContent(GitHubRepoRef ref, {String? token}) async {
+  static Future<String?> fetchFileContent(GitHubRepoRef ref,
+      {String? token}) async {
     if (ref.path == null) return null;
-    
-    final rawUrl = 'https://raw.githubusercontent.com/${ref.owner}/${ref.repo}/${ref.branch ?? 'main'}/${ref.path}';
+
+    final rawUrl =
+        'https://raw.githubusercontent.com/${ref.owner}/${ref.repo}/${ref.branch ?? 'main'}/${ref.path}';
     final headers = <String, String>{};
     if (token != null && token.isNotEmpty) {
       headers['Authorization'] = 'token $token';

@@ -72,7 +72,8 @@ class GitService {
   }
 
   /// Gets the diff for a specific file.
-  static Future<String> getFileDiff(String workingDir, String path, {bool staged = false}) async {
+  static Future<String> getFileDiff(String workingDir, String path,
+      {bool staged = false}) async {
     final args = ['diff'];
     if (staged) args.add('--cached');
     args.add('--');

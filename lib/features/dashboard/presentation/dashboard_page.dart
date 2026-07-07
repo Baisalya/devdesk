@@ -124,8 +124,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                       onOpenFile: () => _openExternalFile(context, ref),
                       onOpenApi: () => _openTool(context, ref, '/api'),
                       onOpenJson: () => _openTool(context, ref, '/json'),
-                      onOpenMarkdown: () =>
-                          _openTool(context, ref, '/markdown'),
+                      onOpenMarkdown: () => _openTool(context, ref, '/vault'),
                       onOpenSnippet: () => _openTool(context, ref, '/snippets'),
                     ),
                     const SizedBox(height: AppSpacing.xl),

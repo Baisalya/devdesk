@@ -1110,8 +1110,10 @@ class _ResponseSection extends ConsumerWidget {
                         icon: const Icon(Icons.compare_arrows),
                         tooltip: 'Compare with...',
                         onPressed: () {
-                          ref.read(diffRightProvider.notifier).state = currentResponse.body;
-                          ref.read(diffSourceRightProvider.notifier).state = DiffSource.api;
+                          ref.read(diffRightProvider.notifier).state =
+                              currentResponse.body;
+                          ref.read(diffSourceRightProvider.notifier).state =
+                              DiffSource.api;
                           Navigator.push(
                             context,
                             MaterialPageRoute(builder: (_) => const DiffPage()),
