@@ -1,3 +1,5 @@
+import '../../../core/security/data_redactor.dart';
+
 /// Represents an HTTP request made by the API tester.
 class ApiRequest {
   final String method;
@@ -35,6 +37,22 @@ class ApiRequest {
       body: body ?? this.body,
       followRedirects: followRedirects ?? this.followRedirects,
       timestamp: timestamp ?? this.timestamp,
+    );
+  }
+
+  ApiRequest sanitized() {
+    return copyWith(
+      url: DataRedactor.redactUrl(url),
+      headers: Map.fromEntries(
+        headers.entries.where((entry) => !isSensitiveHeader(entry.key)),
+      ),
+      queryParams: {
+        for (final entry in queryParams.entries)
+          entry.key: DataRedactor.isSensitiveName(entry.key)
+              ? DataRedactor.replacement
+              : DataRedactor.redactText(entry.value),
+      },
+      body: body == null ? null : DataRedactor.redactJsonText(body!),
     );
   }
 

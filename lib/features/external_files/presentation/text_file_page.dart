@@ -8,6 +8,10 @@ import '../../../core/design/app_spacing.dart';
 import '../../../core/design/app_typography.dart';
 import '../../../core/files/external_file.dart';
 import '../../../core/files/external_file_service.dart';
+import '../../../core/platform/window_close_guard.dart';
+import '../../../core/security/data_redactor.dart';
+import '../../../core/security/safe_clipboard.dart';
+import '../../../core/utils/secret_utils.dart';
 import '../../../core/widgets/app_badge.dart';
 import '../../../core/widgets/app_card.dart';
 import '../../snippets/models/snippet.dart';
@@ -26,21 +30,30 @@ class _TextFilePageState extends ConsumerState<TextFilePage> {
   late final TextEditingController _contentController;
   late final TextEditingController _searchController;
   late String _lastSavedText;
+  late ExternalFileDocument _document;
+  late final String _dirtyOwner = 'external-text-${identityHashCode(this)}';
 
   bool get _hasUnsavedChanges => _contentController.text != _lastSavedText;
 
   @override
   void initState() {
     super.initState();
-    _contentController = TextEditingController(text: widget.document.content);
+    _document = widget.document;
+    _contentController = TextEditingController(text: _document.content);
     _searchController = TextEditingController();
-    _lastSavedText = widget.document.content;
-    _contentController.addListener(() => setState(() {}));
+    _lastSavedText = _document.content;
+    _contentController.addListener(_onContentChanged);
     _searchController.addListener(() => setState(() {}));
+  }
+
+  void _onContentChanged() {
+    WindowCloseGuard.setDirty(_dirtyOwner, _hasUnsavedChanges);
+    setState(() {});
   }
 
   @override
   void dispose() {
+    WindowCloseGuard.clear(_dirtyOwner);
     _contentController.dispose();
     _searchController.dispose();
     super.dispose();
@@ -55,24 +68,38 @@ class _TextFilePageState extends ConsumerState<TextFilePage> {
   }
 
   Future<void> _copyAll() async {
-    await Clipboard.setData(ClipboardData(text: _contentController.text));
+    final shouldRedact = SecretUtils.containsSecret(
+      _contentController.text,
+      fileName: _document.name,
+    );
+    final redacted = await SafeClipboard.copy(
+      _contentController.text,
+      forceRedaction: shouldRedact,
+      fileName: _document.name,
+    );
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('File content copied')),
+      SnackBar(
+        content: Text(
+          redacted
+              ? 'Copied with likely secrets redacted'
+              : 'File content copied',
+        ),
+      ),
     );
   }
 
   Future<void> _saveAs() async {
-    final path = await ExternalFileService.saveTextAs(
-      suggestedName: widget.document.name,
+    final path = await ExternalFileService.saveDocumentAs(
+      document: _document,
       content: _contentController.text,
-      allowedExtensions: [widget.document.extension],
-      dialogTitle: 'Save file copy',
     );
     if (!mounted || path == null) return;
     setState(() {
       _lastSavedText = _contentController.text;
     });
+    await WindowCloseGuard.clear(_dirtyOwner);
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Saved exported copy')),
     );
@@ -85,7 +112,7 @@ class _TextFilePageState extends ConsumerState<TextFilePage> {
         return AlertDialog(
           title: const Text('Overwrite original file?'),
           content: Text(
-            'This will overwrite "${widget.document.name}" on disk.',
+            'This will overwrite "${_document.name}" on disk.',
           ),
           actions: [
             TextButton(
@@ -101,36 +128,58 @@ class _TextFilePageState extends ConsumerState<TextFilePage> {
       },
     );
     if (confirm != true) return;
-    await ExternalFileService.overwriteOriginal(
-      widget.document,
-      _contentController.text,
-    );
-    if (!mounted) return;
-    setState(() {
-      _lastSavedText = _contentController.text;
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Original file saved')),
-    );
+    try {
+      final updatedDocument = await ExternalFileService.overwriteOriginal(
+        _document,
+        _contentController.text,
+      );
+      if (!mounted) return;
+      setState(() {
+        _document = updatedDocument;
+        _lastSavedText = _contentController.text;
+      });
+      await WindowCloseGuard.clear(_dirtyOwner);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Original file saved safely')),
+      );
+    } on ExternalFileException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message)),
+      );
+    }
   }
 
   Future<void> _saveAsSnippet() async {
     final notifier = ref.read(snippetsProvider.notifier);
     final id = await notifier.nextId();
+    final shouldRedact = SecretUtils.containsSecret(
+      _contentController.text,
+      fileName: _document.name,
+    );
     await notifier.addSnippet(
       Snippet(
         id: id,
-        title: widget.document.name,
-        content: _contentController.text,
+        title: _document.name,
+        content: shouldRedact
+            ? DataRedactor.redactText(_contentController.text)
+            : _contentController.text,
         tags: [
           'external-file',
-          if (widget.document.extension.isNotEmpty) widget.document.extension,
+          if (_document.extension.isNotEmpty) _document.extension,
         ],
       ),
     );
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Saved as snippet')),
+      SnackBar(
+        content: Text(
+          shouldRedact
+              ? 'Saved as snippet with likely secrets redacted'
+              : 'Saved as snippet',
+        ),
+      ),
     );
   }
 
@@ -160,14 +209,29 @@ class _TextFilePageState extends ConsumerState<TextFilePage> {
 
   @override
   Widget build(BuildContext context) {
-    final sizeKb = (widget.document.sizeBytes / 1024).toStringAsFixed(1);
+    final sizeKb = (_document.sizeBytes / 1024).toStringAsFixed(1);
     return Shortcuts(
       shortcuts: <ShortcutActivator, Intent>{
         const SingleActivator(LogicalKeyboardKey.keyS, control: true):
-            const _SaveAsIntent(),
+            const _SaveOriginalIntent(),
+        const SingleActivator(
+          LogicalKeyboardKey.keyS,
+          control: true,
+          shift: true,
+        ): const _SaveAsIntent(),
       },
       child: Actions(
         actions: <Type, Action<Intent>>{
+          _SaveOriginalIntent: CallbackAction<_SaveOriginalIntent>(
+            onInvoke: (_) {
+              if (_document.canOverwriteOriginal) {
+                _saveOriginal();
+              } else {
+                _saveAs();
+              }
+              return null;
+            },
+          ),
           _SaveAsIntent: CallbackAction<_SaveAsIntent>(
             onInvoke: (_) {
               _saveAs();
@@ -185,14 +249,14 @@ class _TextFilePageState extends ConsumerState<TextFilePage> {
           },
           child: Scaffold(
             appBar: AppBar(
-              title: Text(widget.document.name),
+              title: Text(_document.name),
               actions: [
                 IconButton(
                   icon: const Icon(Icons.copy_all),
                   tooltip: 'Copy all',
                   onPressed: _copyAll,
                 ),
-                if (widget.document.canOverwriteOriginal)
+                if (_document.canOverwriteOriginal)
                   IconButton(
                     icon: const Icon(Icons.save),
                     tooltip: 'Save original',
@@ -209,9 +273,9 @@ class _TextFilePageState extends ConsumerState<TextFilePage> {
               builder: (context, constraints) {
                 final isWide = constraints.maxWidth >= AppBreakpoints.medium;
                 final info = _FileInfoPanel(
-                  document: widget.document,
+                  document: _document,
                   sizeLabel: '$sizeKb KB',
-                  canOverwrite: widget.document.canOverwriteOriginal,
+                  canOverwrite: _document.canOverwriteOriginal,
                   hasUnsavedChanges: _hasUnsavedChanges,
                 );
                 final editor = _EditorPanel(
@@ -296,7 +360,7 @@ class _FileInfoPanel extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                     Text(
-                      '${document.extension.toUpperCase()} - $sizeLabel',
+                      '${document.extension.toUpperCase()} · $sizeLabel · ${_encodingLabel(document.encoding)}',
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ],
@@ -342,7 +406,7 @@ class _FileInfoPanel extends StatelessWidget {
           const SizedBox(height: AppSpacing.sm),
           Text(
             canOverwrite
-                ? 'Save writes to the original file after confirmation. Save As exports a copy.'
+                ? 'Ctrl+S safely replaces the original after confirmation. Ctrl+Shift+S exports a copy.'
                 : 'This platform exposes a safe read copy only. Use Save As to export changes.',
           ),
         ],
@@ -414,6 +478,19 @@ class _EditorPanel extends StatelessWidget {
       ),
     );
   }
+}
+
+String _encodingLabel(ExternalTextEncoding encoding) {
+  return switch (encoding) {
+    ExternalTextEncoding.utf8 => 'UTF-8',
+    ExternalTextEncoding.utf8Bom => 'UTF-8 BOM',
+    ExternalTextEncoding.utf16LittleEndian => 'UTF-16 LE',
+    ExternalTextEncoding.utf16BigEndian => 'UTF-16 BE',
+  };
+}
+
+class _SaveOriginalIntent extends Intent {
+  const _SaveOriginalIntent();
 }
 
 class _SaveAsIntent extends Intent {

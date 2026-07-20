@@ -1,6 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
+import '../../../core/errors/failure.dart';
+import '../../../core/network/bounded_http.dart';
+import '../../../core/security/data_redactor.dart';
 import '../models/api_environment.dart';
 import '../models/api_variable.dart';
 import '../models/api_workspace_models.dart';
@@ -175,15 +178,23 @@ final apiWorkspaceProvider =
   return ApiWorkspaceNotifier();
 });
 
+typedef ApiClientFactory = http.Client Function();
+
 class ApiWorkspaceNotifier extends StateNotifier<ApiWorkspaceState> {
   ApiWorkspaceNotifier({
     bool autoLoad = true,
     ApiWorkspaceState? initialState,
-  }) : super(initialState ?? const ApiWorkspaceState()) {
+    ApiClientFactory? clientFactory,
+  })  : _clientFactory = clientFactory ?? http.Client.new,
+        super(initialState ?? const ApiWorkspaceState()) {
     if (autoLoad) load();
   }
 
+  final ApiClientFactory _clientFactory;
   http.Client? _activeClient;
+  OperationCancellationToken? _activeCancellation;
+  int _operationGeneration = 0;
+  bool _disposed = false;
 
   void replaceStateForTesting(ApiWorkspaceState nextState) {
     state = nextState;
@@ -193,9 +204,21 @@ class ApiWorkspaceNotifier extends StateNotifier<ApiWorkspaceState> {
     state = state.copyWith(loading: true, error: null);
     try {
       final workspaces = await ApiWorkspaceStorage.loadWorkspaces();
-      state = state.copyWith(loading: false, workspaces: workspaces);
+      final warnings = await ApiWorkspaceStorage.consumeWarnings();
+      if (!_disposed) {
+        state = state.copyWith(
+          loading: false,
+          workspaces: workspaces,
+          error: warnings.isEmpty ? null : warnings.join(' '),
+        );
+      }
     } catch (e) {
-      state = state.copyWith(loading: false, error: e.toString());
+      if (!_disposed) {
+        state = state.copyWith(
+          loading: false,
+          error: DataRedactor.safeError(e),
+        );
+      }
     }
   }
 
@@ -611,6 +634,9 @@ class ApiWorkspaceNotifier extends StateNotifier<ApiWorkspaceState> {
   }
 
   Future<void> sendSelectedRequest({bool allowUnresolved = false}) async {
+    if (state.sending || state.runnerRunning) {
+      return;
+    }
     final workspace = state.activeWorkspace;
     final request = state.selectedRequest;
     if (workspace == null || request == null) {
@@ -627,7 +653,10 @@ class ApiWorkspaceNotifier extends StateNotifier<ApiWorkspaceState> {
       return;
     }
 
-    final client = http.Client();
+    final operationId = ++_operationGeneration;
+    final cancellation = OperationCancellationToken();
+    final client = _clientFactory();
+    _activeCancellation = cancellation;
     _activeClient = client;
     state = state.copyWith(sending: true, error: null);
     try {
@@ -635,22 +664,44 @@ class ApiWorkspaceNotifier extends StateNotifier<ApiWorkspaceState> {
         workspace: workspace,
         prepared: prepared,
         client: client,
+        cancellation: cancellation,
+        operationId: operationId,
       );
-      state = state.copyWith(response: response);
-    } catch (e) {
-      state = state.copyWith(error: e.toString());
+      if (_isCurrent(operationId, cancellation)) {
+        state = state.copyWith(response: response);
+      }
+    } catch (error) {
+      if (_isCurrent(operationId, cancellation)) {
+        state = state.copyWith(error: DataRedactor.safeError(error));
+      }
     } finally {
       client.close();
       if (_activeClient == client) _activeClient = null;
-      state = state.copyWith(sending: false);
-      await _refreshHistoryAndReports(workspace.id);
+      if (_activeCancellation == cancellation) _activeCancellation = null;
+      if (_isCurrent(operationId, cancellation)) {
+        state = state.copyWith(sending: false);
+        await _refreshHistoryAndReports(
+          workspace.id,
+          operationId: operationId,
+          cancellation: cancellation,
+        );
+      }
     }
   }
 
   void cancelRequest() {
+    _operationGeneration++;
+    _activeCancellation?.cancel();
+    _activeCancellation = null;
     _activeClient?.close();
     _activeClient = null;
-    state = state.copyWith(sending: false, runnerRunning: false);
+    if (!_disposed) {
+      state = state.copyWith(
+        sending: false,
+        runnerRunning: false,
+        error: 'Request cancelled.',
+      );
+    }
   }
 
   Future<void> clearHistory() async {
@@ -664,6 +715,9 @@ class ApiWorkspaceNotifier extends StateNotifier<ApiWorkspaceState> {
     bool stopOnFailure = true,
     int delayMs = 0,
   }) async {
+    if (state.sending || state.runnerRunning) {
+      return;
+    }
     final workspace = state.activeWorkspace;
     final collection = state.selectedCollection;
     if (workspace == null || collection == null) {
@@ -675,7 +729,11 @@ class ApiWorkspaceNotifier extends StateNotifier<ApiWorkspaceState> {
       state = state.copyWith(error: 'Collection has no requests to run.');
       return;
     }
-    final client = http.Client();
+
+    final operationId = ++_operationGeneration;
+    final cancellation = OperationCancellationToken();
+    final client = _clientFactory();
+    _activeCancellation = cancellation;
     _activeClient = client;
     state = state.copyWith(runnerRunning: true, error: null);
     final startedAt = DateTime.now();
@@ -683,6 +741,8 @@ class ApiWorkspaceNotifier extends StateNotifier<ApiWorkspaceState> {
     var shouldSkip = false;
     try {
       for (final item in items) {
+        cancellation.throwIfCancelled();
+        if (!_isCurrent(operationId, cancellation)) return;
         if (shouldSkip) {
           results.add(
             ApiRunnerRequestResult(
@@ -722,7 +782,10 @@ class ApiWorkspaceNotifier extends StateNotifier<ApiWorkspaceState> {
             client: client,
             collection: collection,
             folder: item.folder,
+            cancellation: cancellation,
+            operationId: operationId,
           );
+          cancellation.throwIfCancelled();
           final passed = response.passedAssertions &&
               response.statusCode >= 200 &&
               response.statusCode < 400;
@@ -737,21 +800,27 @@ class ApiWorkspaceNotifier extends StateNotifier<ApiWorkspaceState> {
             ),
           );
           if (!passed && stopOnFailure) shouldSkip = true;
-        } catch (e) {
+        } catch (error) {
+          cancellation.throwIfCancelled();
           results.add(
             ApiRunnerRequestResult(
               requestId: item.request.id,
               requestName: item.request.name,
               passed: false,
-              message: e.toString(),
+              message: DataRedactor.safeError(error),
             ),
           );
           if (stopOnFailure) shouldSkip = true;
         }
         if (delayMs > 0) {
-          await Future<void>.delayed(Duration(milliseconds: delayMs));
+          await Future.any<void>([
+            Future<void>.delayed(Duration(milliseconds: delayMs)),
+            cancellation.whenCancelled,
+          ]);
+          cancellation.throwIfCancelled();
         }
       }
+      cancellation.throwIfCancelled();
       final report = ApiRunnerResult(
         id: ApiWorkspaceIds.newId('run'),
         workspaceId: workspace.id,
@@ -762,13 +831,28 @@ class ApiWorkspaceNotifier extends StateNotifier<ApiWorkspaceState> {
         finishedAt: DateTime.now(),
         results: results,
       );
+      cancellation.throwIfCancelled();
       await ApiWorkspaceStorage.saveReport(report);
-      state = state.copyWith(runnerResult: report);
+      cancellation.throwIfCancelled();
+      if (_isCurrent(operationId, cancellation)) {
+        state = state.copyWith(runnerResult: report);
+      }
+    } catch (error) {
+      if (_isCurrent(operationId, cancellation)) {
+        state = state.copyWith(error: DataRedactor.safeError(error));
+      }
     } finally {
       client.close();
       if (_activeClient == client) _activeClient = null;
-      state = state.copyWith(runnerRunning: false);
-      await _refreshHistoryAndReports(workspace.id);
+      if (_activeCancellation == cancellation) _activeCancellation = null;
+      if (_isCurrent(operationId, cancellation)) {
+        state = state.copyWith(runnerRunning: false);
+        await _refreshHistoryAndReports(
+          workspace.id,
+          operationId: operationId,
+          cancellation: cancellation,
+        );
+      }
     }
   }
 
@@ -776,30 +860,46 @@ class ApiWorkspaceNotifier extends StateNotifier<ApiWorkspaceState> {
     required ApiWorkspace workspace,
     required ApiPreparedRequest prepared,
     required http.Client client,
+    required OperationCancellationToken cancellation,
+    required int operationId,
     ApiCollection? collection,
     ApiFolder? folder,
   }) async {
+    cancellation.throwIfCancelled();
     var response = await ApiWorkspaceExecutor.execute(
       prepared: prepared,
       client: client,
+      cancellationToken: cancellation,
     );
+    cancellation.throwIfCancelled();
+    if (!_isCurrent(operationId, cancellation)) {
+      throw ApiFailure('Request cancelled.');
+    }
+
     final assertionResults = ApiAssertionEvaluator.evaluate(
       prepared.source.assertions,
       response,
     );
+    cancellation.throwIfCancelled();
     final extractionResults = ApiExtractionEvaluator.extract(
       prepared.source.extractionRules,
       response,
     );
+    cancellation.throwIfCancelled();
     response = response.copyWith(
       assertionResults: assertionResults,
       extractionResults: extractionResults,
     );
+
     await _applyExtractions(
       workspace: workspace,
       request: prepared.source,
       extractionResults: extractionResults,
+      cancellation: cancellation,
+      operationId: operationId,
     );
+    cancellation.throwIfCancelled();
+
     final history = ApiHistoryItem(
       id: ApiWorkspaceIds.newId('history'),
       workspaceId: workspace.id,
@@ -812,10 +912,16 @@ class ApiWorkspaceNotifier extends StateNotifier<ApiWorkspaceState> {
       request: prepared.source,
       response: response,
     );
-    await ApiWorkspaceStorage.saveHistory(
-      workspace.saveSecrets ? history : history.sanitized(),
+    await ApiWorkspaceStorage.saveHistory(history.sanitized());
+    cancellation.throwIfCancelled();
+    final latestWorkspace = state.workspaces.firstWhere(
+      (item) => item.id == workspace.id,
+      orElse: () => workspace,
     );
-    await _upsertWorkspace(workspace.copyWith(lastUsedAt: DateTime.now()));
+    await _upsertWorkspace(
+      latestWorkspace.copyWith(lastUsedAt: DateTime.now()),
+    );
+    cancellation.throwIfCancelled();
     return response;
   }
 
@@ -823,14 +929,20 @@ class ApiWorkspaceNotifier extends StateNotifier<ApiWorkspaceState> {
     required ApiWorkspace workspace,
     required ApiRequestItem request,
     required List<ApiExtractionResult> extractionResults,
+    required OperationCancellationToken cancellation,
+    required int operationId,
   }) async {
-    if (extractionResults.isEmpty) return;
+    cancellation.throwIfCancelled();
+    if (!_isCurrent(operationId, cancellation) || extractionResults.isEmpty) {
+      return;
+    }
     final rules = {
       for (final rule in request.extractionRules) rule.id: rule,
     };
     var temporary = {...state.temporaryVariables};
     var updatedWorkspace = workspace;
     for (final result in extractionResults.where((result) => result.success)) {
+      cancellation.throwIfCancelled();
       final rule = rules[result.ruleId];
       final key = result.variableName.trim();
       if (key.isEmpty || rule == null) continue;
@@ -884,14 +996,45 @@ class ApiWorkspaceNotifier extends StateNotifier<ApiWorkspaceState> {
           break;
       }
     }
+    cancellation.throwIfCancelled();
+    if (!_isCurrent(operationId, cancellation)) return;
     state = state.copyWith(temporaryVariables: temporary);
     await _upsertWorkspace(updatedWorkspace);
+    cancellation.throwIfCancelled();
   }
 
-  Future<void> _refreshHistoryAndReports(String workspaceId) async {
+  Future<void> _refreshHistoryAndReports(
+    String workspaceId, {
+    required int operationId,
+    required OperationCancellationToken cancellation,
+  }) async {
+    cancellation.throwIfCancelled();
     final history = await ApiWorkspaceStorage.loadHistory(workspaceId);
+    cancellation.throwIfCancelled();
     final reports = await ApiWorkspaceStorage.loadReports(workspaceId);
-    state = state.copyWith(history: history, reports: reports);
+    if (_isCurrent(operationId, cancellation)) {
+      state = state.copyWith(history: history, reports: reports);
+    }
+  }
+
+  bool _isCurrent(
+    int operationId,
+    OperationCancellationToken cancellation,
+  ) {
+    return !_disposed &&
+        !cancellation.isCancelled &&
+        operationId == _operationGeneration;
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    _operationGeneration++;
+    _activeCancellation?.cancel();
+    _activeClient?.close();
+    _activeCancellation = null;
+    _activeClient = null;
+    super.dispose();
   }
 
   Future<ApiCollection> _ensureCollection(ApiWorkspace workspace) async {
@@ -966,14 +1109,17 @@ class ApiWorkspaceNotifier extends StateNotifier<ApiWorkspaceState> {
         if (item.id == workspace.id) workspace else item,
       if (!state.workspaces.any((item) => item.id == workspace.id)) workspace,
     ];
-    await ApiWorkspaceStorage.saveWorkspace(workspace);
+    final storageWarning = await ApiWorkspaceStorage.saveWorkspace(workspace);
     updated.sort((a, b) {
       if (a.favorite != b.favorite) return a.favorite ? -1 : 1;
       final aDate = a.lastUsedAt ?? a.updatedAt;
       final bDate = b.lastUsedAt ?? b.updatedAt;
       return bDate.compareTo(aDate);
     });
-    state = state.copyWith(workspaces: updated);
+    state = state.copyWith(
+      workspaces: updated,
+      error: storageWarning,
+    );
   }
 
   ApiWorkspace? _workspaceById(String workspaceId) {

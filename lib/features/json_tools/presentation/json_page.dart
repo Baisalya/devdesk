@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/design/app_breakpoints.dart';
@@ -8,6 +7,7 @@ import '../../../core/design/app_spacing.dart';
 import '../../../core/design/app_typography.dart';
 import '../../../core/files/external_file.dart';
 import '../../../core/files/external_file_service.dart';
+import '../../../core/security/safe_clipboard.dart';
 import '../../../core/utils/json_utils.dart';
 import '../../../core/widgets/app_editor_panel.dart';
 import '../../../core/widgets/app_error_state.dart';
@@ -192,10 +192,18 @@ class _JsonToolbar extends StatelessWidget {
             onPressed: copyValue == null
                 ? null
                 : () async {
-                    await Clipboard.setData(ClipboardData(text: copyValue));
+                    final redacted = await SafeClipboard.copy(
+                      copyValue,
+                      content: SafeClipboardContent.json,
+                      forceRedaction: true,
+                    );
                     if (!context.mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Copied to clipboard')),
+                      SnackBar(
+                        content: Text(redacted
+                            ? 'Copied with secrets redacted'
+                            : 'Copied to clipboard'),
+                      ),
                     );
                   },
             icon: const Icon(Icons.copy),
@@ -402,31 +410,50 @@ class JsonTreeView extends StatelessWidget {
 
   Widget _buildNode(BuildContext context, String key, dynamic value) {
     if (value is Map || value is List) {
-      return ExpansionTile(
-        tilePadding: EdgeInsets.zero,
-        title: Text(key, style: AppTypography.mono(context)),
-        children: [JsonTreeView(data: value)],
+      final itemCount = value is Map ? value.length : (value as List).length;
+      final kind = value is Map ? 'object' : 'array';
+      return Semantics(
+        container: true,
+        label: '$key, expandable $kind with $itemCount items',
+        child: ExpansionTile(
+          tilePadding: EdgeInsets.zero,
+          title: ExcludeSemantics(
+            child: Text(key, style: AppTypography.mono(context)),
+          ),
+          children: [JsonTreeView(data: value)],
+        ),
       );
     }
     return _buildLeaf(context, key, value);
   }
 
   Widget _buildLeaf(BuildContext context, String key, dynamic value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '$key: ',
-            style: AppTypography.mono(context).copyWith(
-              fontWeight: FontWeight.bold,
-            ),
+    final displayValue = value.toString();
+    final semanticValue = displayValue.length <= 500
+        ? displayValue
+        : '${displayValue.substring(0, 500)}, value truncated for screen reader';
+    return Semantics(
+      container: true,
+      readOnly: true,
+      label: '$key: $semanticValue',
+      child: ExcludeSemantics(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 2),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '$key: ',
+                style: AppTypography.mono(context).copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Expanded(
+                child: Text(displayValue, style: AppTypography.mono(context)),
+              ),
+            ],
           ),
-          Expanded(
-            child: Text(value.toString(), style: AppTypography.mono(context)),
-          ),
-        ],
+        ),
       ),
     );
   }

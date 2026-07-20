@@ -1,38 +1,41 @@
 # Changelog
 
-All notable changes to **DevDesk** will be documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+This project follows Keep a Changelog conventions. No entry is a claim that an artifact was signed, store-approved, or manually verified unless the entry says so explicitly.
 
-## [1.0.0] – 2026‑06‑19
-
-### Added
-
-- Initial release of DevDesk, a pure Flutter developer toolbox app.
-- Dashboard with search, favourites and recent tools.
-- Fully functional Markdown editor with live preview and toolbar.
-- README generator form with export/edit capabilities.
-- JSON viewer and formatter with pretty‑print, minify and tree view modes.
-- Mini Postman API tester supporting GET, POST, PUT, PATCH, DELETE with history, presets and environment variables.
-- JWT decoder tool to inspect header/payload and expiry information.
-- Regex tester with match highlighting and error reporting.
-- Base64 encoder/decoder, URL encoder/decoder and timestamp converter.
-- UUID generator and diff checker utilities.
-- Local snippets and notes with tagging, search, edit and deletion.
-- Settings page with theme selection, data export/import, clear data and About.
-- Hive‑based local storage for requests, notes and user preferences.
-- Complete test suite covering unit logic and key widgets.
-- Release, privacy and changelog documentation.
 ## [1.0.1] - Unreleased
 
-### Added
+### Security
 
-- Safe external file open/view/edit/export flows for Markdown/README, JSON, text/code, API collection JSON, and DevDesk backup JSON.
-- Dashboard Open File quick action with local file type detection and `.env` warning.
-- Text/code file editor with search, copy, Save As, and Save as Snippet.
-- Versioned backup export/import with preview counts and replace/merge options.
-- API collection import/export with sensitive header stripping by default.
-- Windows minimum window size for desktop layout stability.
+- Separated API workspace secrets from ordinary Hive records using an Android Keystore/Windows DPAPI protected overlay; web persistence is disabled for secrets.
+- Added centralized redaction for URLs, headers, cookies, JSON/text bodies, responses, errors, histories, reports, snippets, collection exports, backups, and clipboard actions.
+- Added pre-decompression ZIP central-directory and local-header validation with traversal, duplicate, encryption, symbolic-link, depth, count, expanded-size, per-entry, and compression-ratio limits.
+- Blocked remote Markdown images.
+- Made Android release builds fail closed when real production signing configuration is absent.
 
-### Changed
+### Reliability
 
-- Markdown and JSON tools can open external documents while keeping internal Hive storage flows intact.
-- README generator can export generated README.md through the platform save flow.
+- Reworked backup import to validate and stage before mutation, persist a rollback journal, verify the imported state, and restore exact snapshots after failure or interrupted startup.
+- Added storage schema/version metadata, migration journaling, startup recovery UI, record quarantine support, and destructive reset.
+- Replaced direct external-file truncation with guarded staging and atomic replacement where supported; added encoding/BOM/line-ending preservation and file identity checks.
+- Added bounded streamed HTTP response handling, connection/read-idle/total deadlines, binary previews, cancellation, duplicate-send suppression, operation identity, and disposal guards.
+- Added bounded JSON, regex, diff, GitHub, archive, folder, history, report, and external-file operations.
+
+### Accessibility and desktop
+
+- Added a command registry and command palette, desktop editor shortcuts, dirty-window close protection, visible loading/error announcements, and screen-reader alternatives for JSON tree and diff output.
+- Corrected Windows product metadata and added portable distribution/signing tooling.
+
+### Dependencies
+
+- Replaced discontinued `flutter_markdown` with `flutter_markdown_plus`.
+- Staged HTTP 1.x and UUID 4.x migrations after adding focused tests.
+- Deferred archive 4.x and Riverpod 3.x major migrations until the full SDK verification matrix is available.
+
+### Documentation
+
+- Rewrote offline/privacy claims to describe user-initiated network activity and platform limitations accurately.
+- Added signing, packaging, support, security, store metadata, rollback, threat-model, verification, and remediation evidence documents.
+
+## [1.0.0] - 2026-06-19
+
+Initial development baseline. This version is retained for history and is not represented as a verified public release candidate.

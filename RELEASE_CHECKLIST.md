@@ -1,48 +1,71 @@
-# Release Checklist
+# DevDesk Release Checklist
 
-Use this checklist to prepare DevDesk for a production release on Google Play. Each item is important for ensuring that the application meets quality, privacy and compliance standards.
+This checklist records automated evidence separately from owner-controlled and
+manual release work. A checked build item does not make an unsigned artifact a
+public release candidate.
 
-## Code and quality
+## Automated quality gates
 
-- [ ] **Feature completeness**: confirm all advertised tools (dashboard, Markdown editor, README generator, JSON viewer, API tester, JWT decoder, regex tester, Base64 tool, URL encoder/decoder, timestamp converter, UUID generator, diff checker, snippets and settings) work offline and provide meaningful feedback on invalid input.
-- [ ] **Unit tests**: run `flutter test` and ensure all tests pass. Add or update tests if new logic is introduced.
-- [ ] **Widget tests**: ensure critical UI behaviour (search, theme switching, JSON formatting, API requests, note CRUD, etc.) is covered and passes.
-- [ ] **Integration tests**: simulate real‑world flows (saving a note, formatting JSON, making an API request, exporting data) and ensure correct results.
-- [ ] **Linting and formatting**: run `flutter analyze` and `dart format .` to fix any issues and maintain code style.
-- [ ] **Remove dead code**: ensure there is no unused or obsolete code, commented blocks or TODO placeholders in production features.
-- [ ] **Dependencies**: verify that all dependencies in `pubspec.yaml` are up to date and do not introduce breaking changes. Avoid adding unnecessary packages.
+- [x] `flutter pub get`
+- [x] `dart format --output=none --set-exit-if-changed .`
+- [x] `flutter analyze` with no issues
+- [x] `flutter test --coverage` (184 passing tests; 52.86% line coverage)
+- [x] Malicious ZIP, bounded HTTP, cancellation, secret-redaction, storage
+  migration, backup rollback, and atomic-file failure tests
+- [x] Android debug APK build
+- [x] Windows release bundle build
+- [x] Web release build and Wasm dry run
+- [ ] Android release APK/AAB signed with the real externally provisioned key
+- [ ] Windows portable bundle signed, timestamped, and verified with the real
+  Authenticode certificate
 
-## Build configuration
+## Product and platform checks
 
-- [ ] **App name and package name**: confirm that `android/app/src/main/AndroidManifest.xml` defines the correct application ID (`com.example.devdesk` or your chosen ID) and that the displayed app name matches “DevDesk” (or “DevKit Offline”).
-- [ ] **Icon assets**: supply a proper app icon in `android/app/src/main/res` or create one with Flutter’s `flutter_launcher_icons` package. Ensure all required densities (mdpi, hdpi, xhdpi, xxhdpi, xxxhdpi) are provided.
-- [ ] **Permissions**: include only necessary permissions in the Android manifest. At minimum, add `INTERNET` for the API tester and avoid requesting storage or personal data permissions.
-- [ ] **Versioning**: update `version` in `pubspec.yaml` with a new version number and build number for each release.
-- [ ] **Proguard rules**: if using obfuscation, add rules to keep necessary classes (e.g. Hive adapters) from being stripped.
+- [ ] Smoke-test every advertised tool on supported Android and Windows
+  devices, including invalid, empty, and maximum-size inputs.
+- [ ] Verify API timeouts, cancellation, redirects, binary responses, large
+  responses, and offline failures against controlled endpoints.
+- [ ] Verify Android Keystore and Windows DPAPI secret save/load/delete behavior
+  across restart, upgrade, lock, corruption, and user-data clearing.
+- [ ] Verify backup merge/replace, interrupted import recovery, future-schema
+  rejection, and downgrade/rollback behavior on copies of realistic data.
+- [ ] Verify Windows atomic overwrite, conflict detection, read-only/locked
+  files, Unicode/spaces/long paths, network-path refusal, and recovery files.
+- [ ] Test TalkBack and Windows screen readers, keyboard-only navigation, text
+  scaling, contrast, focus order, and dirty-window close confirmation.
+- [ ] Profile large JSON, regex, diff, ZIP, folder, and API workloads on minimum
+  supported hardware.
+- [ ] Test the web build with the documented browser storage, CORS,
+  mixed-content, file, and session-only secret limitations.
 
-## Play Store listing
+## Privacy and security review
 
-- [ ] **Title and description**: write a clear app title and short description. The full description should outline the main features and emphasize offline privacy. Avoid misleading or deceptive claims.
-- [ ] **Screenshots**: prepare high‑quality screenshots for different screen sizes (phone and tablet) showing the dashboard, API tester, JSON formatter and other tools.
-- [ ] **Feature graphic (optional)**: create a 1024×500px feature graphic for the Play Store listing.
-- [ ] **Privacy policy**: provide a link to the privacy policy (see `PRIVACY.md`). State clearly that no user data is sent to any server and all data stays on the device.
-- [ ] **Content rating**: complete the Play Console content rating questionnaire. DevDesk has no user‑generated content or sensitive data.
+- [x] Privacy copy states that ordinary data is local and that network access
+  occurs when the user sends API requests or explicitly fetches GitHub content.
+- [x] Backups, histories, reports, portable collections, and common clipboard
+  paths exclude or redact secret-like values by default.
+- [x] Saved API workspace secrets are opt-in and use Android Keystore or Windows
+  DPAPI; unsupported platforms keep them session-only.
+- [x] Android requests Internet access but no broad storage permission, disables
+  platform backup, and blocks cleartext traffic outside debug builds.
+- [ ] Publish stable privacy, security, and support URLs and verify that store
+  disclosures exactly match the final signed artifacts.
+- [ ] Complete an independent security review and dependency/advisory review of
+  the exact release commit and lockfile.
 
-## Additional steps
+## Store and distribution work
 
-- [ ] **Backup and restore**: test export/import of local data to ensure that users can migrate notes and history between devices.
-- [ ] **Crash resilience**: attempt to paste extremely large JSON or malformed content into each tool and confirm that the app shows a useful error instead of crashing.
-- [ ] **Security**: confirm that sensitive tokens (JWT, API keys, auth headers) are never logged to console or persisted unless the user explicitly opts in. Warn users before saving secrets.
-- [ ] **Accessibility**: navigate the app using TalkBack/VoiceOver. Ensure that buttons are labelled, text fields have hints and dark mode has good contrast.
-- [ ] **Third‑party audits**: if distributing widely, consider a security audit of the codebase and dependencies.
+- [x] Application ID is `com.baishalya.devdesk`; displayed name is `DevDesk`.
+- [x] Version metadata is `1.0.0+1` and Windows resource metadata matches it.
+- [x] MIT license, privacy, security, support, notices, metadata draft, release
+  runbook, and rollback guidance are present.
+- [ ] Supply final Android/Windows icons, Play screenshots, feature graphic, and
+  approved listing copy.
+- [ ] Complete Play content rating, data-safety, target-SDK, and policy forms.
+- [ ] Generate and review third-party notices from the final lockfile.
+- [ ] Verify signed artifact hashes and inventories on clean supported devices
+  or VMs, then archive evidence beside the immutable release tag.
+- [ ] Obtain an independent go/no-go decision with zero open P0/P1 issues.
 
-Once everything on this list is checked and tested, you can proceed to build a release APK or AAB with `flutter build appbundle` and upload it through the Google Play Console. Monitor crash reports and feedback after release and plan maintenance updates accordingly.
-## Cross-platform external file release checks
-
-- [x] Dashboard exposes an Open File action.
-- [x] Markdown/README, JSON, text/code, DevDesk backup, and API collection files are detected locally.
-- [x] Android uses user-selected files without broad storage permission or `MANAGE_EXTERNAL_STORAGE`.
-- [x] Windows supports file open/save dialogs and a guarded minimum window size.
-- [x] External `.env` files show a secrets warning.
-- [x] Backups show a preview and support replace/merge before import.
-- [x] API collection imports warn about sensitive headers and default to excluding secrets.
+Until every signing, manual, owner-input, and clean-environment item above is
+complete, the public release decision remains **HOLD**.

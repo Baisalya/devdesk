@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/design/app_colors.dart';
 import '../../../core/design/app_spacing.dart';
 import '../../../core/design/app_typography.dart';
+import '../../../core/security/safe_clipboard.dart';
 import '../../../core/utils/json_utils.dart';
 import '../../../core/widgets/app_badge.dart';
 import '../../../core/widgets/app_card.dart';
@@ -212,10 +212,16 @@ class _DecodedJwtView extends StatelessWidget {
           child: FilledButton.icon(
             onPressed: () async {
               final jsonString = JsonUtils.prettyPrint(_copyableResult(result));
-              await Clipboard.setData(ClipboardData(text: jsonString));
+              await SafeClipboard.copy(
+                jsonString,
+                content: SafeClipboardContent.json,
+                forceRedaction: true,
+              );
               if (!context.mounted) return;
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Copied JSON to clipboard')),
+                const SnackBar(
+                  content: Text('Copied JSON with sensitive claims redacted'),
+                ),
               );
             },
             icon: const Icon(Icons.copy),
@@ -297,10 +303,16 @@ class _JsonPanel extends StatelessWidget {
                   icon: const Icon(Icons.copy),
                   tooltip: 'Copy $title',
                   onPressed: () async {
-                    await Clipboard.setData(ClipboardData(text: text));
+                    await SafeClipboard.copy(
+                      text,
+                      content: SafeClipboardContent.json,
+                      forceRedaction: true,
+                    );
                     if (!context.mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('$title copied')),
+                      SnackBar(
+                          content: Text(
+                              '$title copied with sensitive claims redacted')),
                     );
                   },
                 ),

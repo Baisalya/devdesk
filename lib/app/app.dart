@@ -1,7 +1,9 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/storage/local_storage.dart';
+import 'command_registry.dart';
 import 'router.dart';
 import 'theme/dark_theme.dart';
 import 'theme/light_theme.dart';
@@ -17,11 +19,14 @@ class MyApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final themeMode = ref.watch(themeModeProvider);
     return MaterialApp(
+      navigatorKey: devDeskNavigatorKey,
       title: 'DevDesk',
       debugShowCheckedModeBanner: false,
       theme: lightTheme,
       darkTheme: darkTheme,
       themeMode: themeMode,
+      shortcuts: kIsWeb ? null : devDeskShortcuts,
+      actions: kIsWeb ? null : devDeskActions,
       onGenerateRoute: (settings) => generateRoute(settings),
       initialRoute: '/dashboard',
     );

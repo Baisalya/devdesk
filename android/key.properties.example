@@ -1,0 +1,6 @@
+# Copy to android/key.properties outside source control and replace placeholders.
+# Prefer an absolute storeFile path. Never commit the real file or passwords.
+storeFile=C:\\secure\\devdesk-upload.jks
+storePassword=REPLACE_ME
+keyAlias=upload
+keyPassword=REPLACE_ME

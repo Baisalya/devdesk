@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:archive/archive.dart';
 import 'package:http/http.dart' as http;
 
+import '../../../../core/archive/archive_policy.dart';
 import '../../../../core/files/external_file_service.dart';
 import '../model/vault_note.dart';
 import '../utils/vault_parser.dart';
@@ -40,15 +41,19 @@ class VaultExportService {
       archive.addFile(ArchiveFile(_archivePathFor(note), bytes.length, bytes));
     }
     final encoded = ZipEncoder().encode(archive);
-    if (encoded == null) {
-      throw StateError('Could not encode vault ZIP archive.');
-    }
     return Uint8List.fromList(encoded);
   }
 
   static List<VaultNote> importZipBytes(List<int> bytes) {
-    if (bytes.length > maxImportTotalBytes) {
-      throw const FormatException('Vault ZIP is larger than the safe limit.');
+    final manifest = ArchivePolicy.inspect(
+      bytes,
+      maxArchiveBytes: maxImportFileBytes,
+      maxEntryBytes: maxImportFileBytes,
+      maxExpandedBytes: maxImportTotalBytes,
+      maxEntries: 1000,
+    );
+    if (manifest.entries.isEmpty) {
+      throw const FormatException('Vault ZIP contains no entries.');
     }
     final archive = ZipDecoder().decodeBytes(bytes, verify: true);
     var totalBytes = 0;

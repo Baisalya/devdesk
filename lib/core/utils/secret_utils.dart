@@ -50,7 +50,7 @@ class SecretUtils {
     return text.replaceAllMapped(_genericSecretPattern, (match) {
       final fullMatch = match.group(0)!;
       final secretValue = match.group(1)!;
-      final maskedValue = '*' * 8;
+      final maskedValue = List.filled(8, '*').join();
       return fullMatch.replaceFirst(secretValue, maskedValue);
     });
   }

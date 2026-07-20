@@ -2,57 +2,85 @@ import 'dart:convert';
 
 import '../errors/failure.dart';
 
-/// Utilities for parsing, formatting and validating JSON.
+/// Bounded JSON parsing/formatting utilities for untrusted developer input.
 class JsonUtils {
-  /// Parses and validates a JSON string. Returns the decoded object or
-  /// throws [JsonFailure] if the input is invalid. The exception includes
-  /// the error message from the parser.
+  static const int maxInputBytes = 5 * 1024 * 1024;
+  static const int maxDepth = 128;
+  static const int maxNodes = 100000;
+
   static dynamic parseJson(String input) {
+    _guardInput(input);
     try {
-      return jsonDecode(input);
-    } on FormatException catch (e) {
-      throw JsonFailure(_formatError(input, e));
-    } catch (e) {
-      throw JsonFailure('Invalid JSON');
+      final decoded = jsonDecode(input);
+      _validateStructure(decoded);
+      return decoded;
+    } on JsonFailure {
+      rethrow;
+    } on FormatException catch (error) {
+      throw JsonFailure(_formatError(input, error));
+    } catch (_) {
+      throw JsonFailure('Invalid JSON.');
     }
   }
 
-  /// Pretty‑prints a JSON object with indentation. Accepts either a Dart
-  /// object (Map/List) or a raw JSON string. Throws [JsonFailure] on error.
   static String prettyPrint(dynamic json) {
     try {
-      final dynamic data;
-      if (json is String) {
-        data = jsonDecode(json);
-      } else {
-        data = json;
-      }
-      const encoder = JsonEncoder.withIndent('  ');
-      return encoder.convert(data);
-    } on FormatException catch (e) {
+      final data = json is String ? parseJson(json) : json;
+      _validateStructure(data);
+      return const JsonEncoder.withIndent('  ').convert(data);
+    } on JsonFailure {
+      rethrow;
+    } on FormatException catch (error) {
       final source = json is String ? json : '';
-      throw JsonFailure(_formatError(source, e));
+      throw JsonFailure(_formatError(source, error));
     } catch (_) {
-      throw JsonFailure('Invalid JSON');
+      throw JsonFailure('Invalid JSON.');
     }
   }
 
-  /// Minifies a JSON object by removing unnecessary whitespace. Accepts
-  /// either a Dart object or a JSON string. Throws [JsonFailure] on error.
   static String minify(dynamic json) {
     try {
-      final dynamic data;
-      if (json is String) {
-        data = jsonDecode(json);
-      } else {
-        data = json;
-      }
+      final data = json is String ? parseJson(json) : json;
+      _validateStructure(data);
       return jsonEncode(data);
-    } on FormatException catch (e) {
+    } on JsonFailure {
+      rethrow;
+    } on FormatException catch (error) {
       final source = json is String ? json : '';
-      throw JsonFailure(_formatError(source, e));
+      throw JsonFailure(_formatError(source, error));
     } catch (_) {
-      throw JsonFailure('Invalid JSON');
+      throw JsonFailure('Invalid JSON.');
+    }
+  }
+
+  static void _guardInput(String input) {
+    if (utf8.encode(input).length > maxInputBytes) {
+      throw JsonFailure('JSON input is larger than the 5 MB safety limit.');
+    }
+  }
+
+  static void _validateStructure(dynamic root) {
+    var nodes = 0;
+    final stack = <({dynamic value, int depth})>[(value: root, depth: 0)];
+    while (stack.isNotEmpty) {
+      final current = stack.removeLast();
+      nodes++;
+      if (nodes > maxNodes) {
+        throw JsonFailure('JSON contains too many values to process safely.');
+      }
+      if (current.depth > maxDepth) {
+        throw JsonFailure('JSON is nested too deeply to process safely.');
+      }
+      final value = current.value;
+      if (value is Map) {
+        for (final entry in value.entries) {
+          stack.add((value: entry.value, depth: current.depth + 1));
+        }
+      } else if (value is Iterable) {
+        for (final item in value) {
+          stack.add((value: item, depth: current.depth + 1));
+        }
+      }
     }
   }
 

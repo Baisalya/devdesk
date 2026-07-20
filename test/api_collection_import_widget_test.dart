@@ -40,7 +40,9 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.text('Import API collection'), findsOneWidget);
-    expect(find.text('Import without secrets'), findsOneWidget);
-    expect(find.text('Import with secrets'), findsOneWidget);
+    expect(find.text('Import safely'), findsOneWidget);
+    expect(find.textContaining('Sensitive headers, URL values, and bodies'),
+        findsOneWidget);
+    expect(find.text('Import with secrets'), findsNothing);
   });
 }

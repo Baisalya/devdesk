@@ -22,5 +22,31 @@ void main() {
     test('empty pattern returns no matches', () {
       expect(RegexUtils.testRegex('', 'text'), isEmpty);
     });
+
+    test('rejects common catastrophic nested quantifier shape', () {
+      expect(
+        () => RegexUtils.testRegex(
+          r'(a+)+$',
+          "${List.filled(10000, 'a').join()}!",
+        ),
+        throwsA(
+          isA<RegexFailure>().having(
+            (failure) => failure.message,
+            'message',
+            contains('backtracking risk'),
+          ),
+        ),
+      );
+    });
+
+    test('rejects oversized input before regex evaluation', () {
+      expect(
+        () => RegexUtils.testRegex(
+          'a',
+          List.filled(RegexUtils.maxInputBytes + 1, 'a').join(),
+        ),
+        throwsA(isA<RegexFailure>()),
+      );
+    });
   });
 }

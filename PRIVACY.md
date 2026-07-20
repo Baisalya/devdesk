@@ -1,48 +1,58 @@
-# Privacy Policy for DevDesk
+# DevDesk Privacy Notice
 
-Updated: 19 June 2026
+**Updated: 15 July 2026**
 
-DevDesk (“the app”) is committed to safeguarding your privacy. This policy explains what information is collected, how it is used and your choices. Because DevDesk is designed to work entirely offline, your personal data never leaves your device.
+DevDesk is an offline-first developer toolbox. It has no account system, analytics, telemetry, advertising SDK, cloud synchronization service, or DevDesk-operated backend.
 
-## 1. Information we do **not** collect
+## Data kept on the device
 
-- **No personal data is transmitted**: DevDesk does not collect or transmit any personal information (such as your name, email, location or device identifiers) to servers or third parties. All data is kept locally on your device.
-- **No analytics or tracking**: The app contains no analytics SDKs or third‑party tracking libraries. We do not track user behaviour, device information or usage statistics.
-- **No remote storage**: Notes, API histories, environment variables and any other content you create remain stored locally in the app’s private storage. They are never uploaded to cloud services.
+DevDesk can store locally entered Markdown, notes, snippets, preferences, API workspace metadata, sanitized API history, reports, and vault content. Ordinary application records use Hive in the app's local data directory.
 
-## 2. Information you provide
+API credentials and secret values are separated from ordinary workspace records when the platform provides an appropriate boundary:
 
-You may voluntarily enter data into the app, for example:
+- Android: encrypted with a key held by Android Keystore.
+- Windows: protected with Windows DPAPI for the current user.
+- Web: no equivalent protected persistent secret store is claimed; secrets are session-only and are not saved.
 
-- **Notes and snippets**: The notes and snippets you write are saved locally using an on‑device database (Hive). You can delete individual notes or clear all data from the settings screen.
-- **API requests**: When using the API tester, you input URLs, headers and request bodies. These are sent over the internet only to the specified endpoint when you tap the “Send” button. You can disable saving of authorization headers and tokens in the history settings.
-- **Tokens and secrets**: JWT tokens are decoded locally in your browser; they are never transmitted over the network. We recommend exercising caution when pasting sensitive tokens and using the option not to store them.
+Local device administrators, malware running as the user, screen capture, clipboard managers, and a compromised operating system remain outside this protection model.
 
-## 3. Permissions
+## User-initiated network activity
 
-DevDesk requests minimal permissions. On Android, the app requires:
+DevDesk uses the network only for an action the user starts:
 
-- **Internet**: to send API requests when you use the API tester. No internet connection is required for any other features.
+- API Tester sends the prepared request to the URL chosen by the user.
+- Supported GitHub file/repository fetches contact GitHub endpoints selected by the user.
 
-No other permissions (such as storage access, location, contacts or camera) are requested or used.
+Those destination services receive the normal network information needed to serve the request, such as IP address, request URL, headers, and body. DevDesk does not proxy these requests through a DevDesk server.
 
-## 4. Data export and import
+Remote images in Markdown are blocked. The app does not silently fetch tracking pixels or other remote Markdown resources.
 
-You may export your local data (notes, API history, environment variables) to a JSON file for backup or transfer to another device. The exported file remains under your control and is not uploaded anywhere by the app. When importing a backup, the file remains on your device and is read only into the app’s local storage.
+## API data and history
 
-## 5. Deleting your data
+Request URLs, headers, bodies, cookies, responses, and extracted values can contain sensitive information. DevDesk applies conservative redaction before portable history, reports, snippets generated from requests, clipboard output, collection export, and backup export. Protected secret values are excluded from backups by default.
 
-You can delete any individual note or snippet within the app. The settings screen also provides a **Clear Data** option that will permanently remove all stored notes, API histories and configurations from the device. This action cannot be undone.
+Redaction is defensive, not a guarantee that arbitrary confidential text can always be recognized. Review every export before sharing it.
 
-## 6. Changes to this policy
+## External files and backups
 
-We may update this privacy policy from time to time. When we do, the updated policy will be available in the app repository. We recommend checking the policy whenever you update the app.
+Files are read only after the user selects them through the platform picker. Android uses document URIs and does not request broad storage access. Windows uses file paths selected by the user and applies guarded atomic replacement only to supported local files.
 
-## 7. Contact
+Backup import validates type, version, schema versions, depth, sizes, and record counts before mutation. A persistent rollback journal is used so interrupted or failed imports can restore the prior local state. Backup files remain wherever the user saves them and are not uploaded by DevDesk.
 
-If you have any questions or concerns about privacy while using DevDesk, please open an issue in the repository or email the developer at the contact provided in the Play Store listing.
-## External file handling
+## Clipboard and operating-system features
 
-External files are opened only when the user chooses them. DevDesk processes those files locally and does not upload them. Android uses a system picker style flow and does not request broad storage access or `MANAGE_EXTERNAL_STORAGE`. Windows uses normal file dialogs. Editing an external file uses Save As/export copy unless the platform safely exposes a writable original path and the user confirms overwrite.
+Explicit copy actions place redacted content in the operating-system clipboard. Clipboard history, synchronized clipboard features, screen readers, screenshots, backups made by the operating system, and other software on the device are controlled by the operating system and user configuration.
 
-DevDesk warns before opening `.env` files because they commonly contain secrets. API collection imports default to stripping authorization, token, API key, and secret-like headers unless the user explicitly chooses to import them.
+Android application backup/data extraction is disabled for DevDesk's private data. Windows local data follows the user's Windows profile and backup policy.
+
+## Web limitations
+
+Browser CORS, mixed-content rules, storage quotas, private browsing, clipboard permission, and browser data clearing can limit or remove functionality. DevDesk does not claim the web build has the same file overwrite or protected-secret guarantees as Android and Windows.
+
+## Deletion and retention
+
+Users can delete individual records or use Clear Data. Clear Data cancels active API work, clears all known local boxes and protected secrets, and invalidates application providers. API history and reports are bounded by application retention limits.
+
+## Contact
+
+Privacy questions and defects can be filed through the repository issue tracker. Do not include real credentials, tokens, private request bodies, or personal data in a public report. Security-sensitive reports should follow `SECURITY.md`.

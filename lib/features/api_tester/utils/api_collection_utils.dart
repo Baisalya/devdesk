@@ -20,9 +20,8 @@ class ApiCollectionUtils {
     Iterable<ApiRequest> requests, {
     bool includeSecrets = false,
   }) {
-    final sanitized = includeSecrets
-        ? requests
-        : requests.map((request) => request.withoutSensitiveHeaders());
+    // Portable collection files are never a protected secret boundary.
+    final sanitized = requests.map((request) => request.sanitized());
     return {
       'type': type,
       'version': version,

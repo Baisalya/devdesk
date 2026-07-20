@@ -1,49 +1,129 @@
-/// Base failure class used across the application.
-///
-/// Instead of throwing strings or raw exceptions, use [Failure] or one of its
-/// subclasses to represent domain or infrastructure errors. This makes error
-/// handling in the UI easier and allows passing along context.
-abstract class Failure {
-  final String message;
+/// Stable severity used by DevDesk domain and infrastructure failures.
+enum FailureSeverity { info, warning, error, critical }
 
-  Failure(this.message);
+/// Technical category safe to include in support diagnostics.
+enum FailureCategory {
+  validation,
+  network,
+  storage,
+  fileSystem,
+  security,
+  platform,
+  unknown,
+}
+
+/// Base typed failure used across the application.
+///
+/// [message] is intentionally safe for user display. Raw exception details,
+/// payloads, URLs, paths, credentials, and personal data must not be placed in
+/// it. [code], [category], [severity], [retryable], and [correlationId] are safe
+/// diagnostic metadata and remain stable enough for support workflows.
+abstract class Failure implements Exception {
+  final String message;
+  final String code;
+  final FailureSeverity severity;
+  final FailureCategory category;
+  final bool retryable;
+  final String correlationId;
+
+  Failure(
+    this.message, {
+    required this.code,
+    this.severity = FailureSeverity.error,
+    this.category = FailureCategory.unknown,
+    this.retryable = false,
+    String? correlationId,
+  }) : correlationId = correlationId ?? _FailureIds.next();
+
+  Map<String, Object> toDiagnosticMap() {
+    return {
+      'code': code,
+      'severity': severity.name,
+      'category': category.name,
+      'retryable': retryable,
+      'correlationId': correlationId,
+    };
+  }
 
   @override
   String toString() => message;
 }
 
-/// Represents a JSON parsing or formatting error.
-class JsonFailure extends Failure {
-  JsonFailure(super.message);
+class _FailureIds {
+  static int _counter = 0;
+
+  static String next() {
+    _counter = (_counter + 1) & 0xFFFFF;
+    final micros = DateTime.now().toUtc().microsecondsSinceEpoch;
+    return 'DD-${micros.toRadixString(36)}-${_counter.toRadixString(36)}';
+  }
 }
 
-/// Represents an invalid regular expression.
+/// Represents a JSON parsing, validation, or formatting error.
+class JsonFailure extends Failure {
+  JsonFailure(super.message)
+      : super(
+          code: 'DD-JSON-001',
+          category: FailureCategory.validation,
+        );
+}
+
+/// Represents an invalid or unsafe regular expression.
 class RegexFailure extends Failure {
-  RegexFailure(super.message);
+  RegexFailure(super.message)
+      : super(
+          code: 'DD-REGEX-001',
+          category: FailureCategory.validation,
+        );
 }
 
 /// Represents invalid Base64 input.
 class Base64Failure extends Failure {
-  Base64Failure(super.message);
+  Base64Failure(super.message)
+      : super(
+          code: 'DD-BASE64-001',
+          category: FailureCategory.validation,
+        );
 }
 
 /// Represents invalid URL encoding/decoding input.
 class UrlFailure extends Failure {
-  UrlFailure(super.message);
+  UrlFailure(super.message)
+      : super(
+          code: 'DD-URL-001',
+          category: FailureCategory.validation,
+        );
 }
 
 /// Represents invalid timestamp conversion.
 class TimestampFailure extends Failure {
-  TimestampFailure(super.message);
+  TimestampFailure(super.message)
+      : super(
+          code: 'DD-TIME-001',
+          category: FailureCategory.validation,
+        );
 }
 
-/// Represents invalid JWT tokens.
+/// Represents invalid JWT input. DevDesk decodes but does not verify signatures.
 class JwtFailure extends Failure {
-  JwtFailure(super.message);
+  JwtFailure(super.message)
+      : super(
+          code: 'DD-JWT-001',
+          category: FailureCategory.validation,
+        );
 }
 
-/// Represents general API request failures.
+/// Represents API request and response failures.
 class ApiFailure extends Failure {
   final int? statusCode;
-  ApiFailure(super.message, {this.statusCode});
+
+  ApiFailure(
+    super.message, {
+    this.statusCode,
+    super.code = 'DD-API-001',
+    super.severity = FailureSeverity.error,
+    super.category = FailureCategory.network,
+    super.retryable = true,
+    super.correlationId,
+  });
 }

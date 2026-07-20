@@ -10,6 +10,7 @@ import '../../../core/design/app_spacing.dart';
 import '../../../core/design/app_typography.dart';
 import '../../../core/files/external_file.dart';
 import '../../../core/files/external_file_service.dart';
+import '../../../core/security/data_redactor.dart';
 import '../../../core/widgets/app_badge.dart';
 import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/app_copy_button.dart';
@@ -386,12 +387,10 @@ class _ApiWorkspacesPageState extends ConsumerState<ApiWorkspacesPage> {
   }
 
   Future<void> _exportWorkspace(ApiWorkspace workspace) async {
-    final includeSecrets = await _confirmIncludeSecrets();
-    if (includeSecrets == null) return;
     final content = const JsonEncoder.withIndent('  ').convert(
       ApiWorkspaceImportExport.exportWorkspace(
         workspace,
-        includeSecrets: includeSecrets,
+        includeSecrets: false,
       ),
     );
     final path = await ExternalFileService.saveTextAs(
@@ -420,12 +419,10 @@ class _ApiWorkspacesPageState extends ConsumerState<ApiWorkspacesPage> {
       _showSnack('Select a collection to export.');
       return;
     }
-    final includeSecrets = await _confirmIncludeSecrets();
-    if (includeSecrets == null) return;
     final content = const JsonEncoder.withIndent('  ').convert(
       ApiWorkspaceImportExport.exportCollection(
         collection,
-        includeSecrets: includeSecrets,
+        includeSecrets: false,
       ),
     );
     final path = await ExternalFileService.saveTextAs(
@@ -435,34 +432,6 @@ class _ApiWorkspacesPageState extends ConsumerState<ApiWorkspacesPage> {
       dialogTitle: 'Export API collection',
     );
     if (path != null) _showSnack('API collection exported.');
-  }
-
-  Future<bool?> _confirmIncludeSecrets() {
-    return showDialog<bool>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Export secrets?'),
-          content: const Text(
-            'Exports exclude tokens, API keys, passwords and secret variables by default.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-            OutlinedButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Exclude secrets'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Include secrets'),
-            ),
-          ],
-        );
-      },
-    );
   }
 
   Future<bool> _confirm({
@@ -1699,7 +1668,9 @@ class _ResolvedPreview extends StatelessWidget {
                 ),
               ),
               AppCopyButton(
-                  value: preview.url, feedback: 'Resolved URL copied'),
+                value: DataRedactor.redactUrl(preview.url),
+                feedback: 'Resolved URL copied with secrets redacted',
+              ),
             ],
           ),
           SelectableText(preview.url, style: AppTypography.mono(context)),
@@ -2846,7 +2817,10 @@ class _ResponseViewerState extends State<_ResponseViewer> {
               AppBadge(label: '${response.durationMs} ms', icon: Icons.timer),
               AppBadge(
                   label: _formatBytes(response.sizeBytes), icon: Icons.storage),
-              AppCopyButton(value: response.body, feedback: 'Response copied'),
+              AppCopyButton(
+                value: DataRedactor.redactJsonText(response.body),
+                feedback: 'Response copied with secrets redacted',
+              ),
             ],
           ),
         ),
@@ -3000,7 +2974,11 @@ class _HeadersPanel extends StatelessWidget {
                 style: AppTypography.mono(context),
               ),
             ),
-            AppCopyButton(value: entry.value, feedback: '${entry.key} copied'),
+            AppCopyButton(
+              value: DataRedactor.redactHeaders(
+                  {entry.key: entry.value})[entry.key],
+              feedback: '${entry.key} copied with secrets redacted',
+            ),
           ],
         );
       },

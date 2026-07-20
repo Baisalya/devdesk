@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/design/app_breakpoints.dart';
@@ -9,9 +9,12 @@ import '../../../core/design/app_spacing.dart';
 import '../../../core/design/app_typography.dart';
 import '../../../core/files/external_file.dart';
 import '../../../core/files/external_file_service.dart';
+import '../../../core/platform/window_close_guard.dart';
+import '../../../core/security/safe_clipboard.dart';
 import '../../../core/widgets/app_badge.dart';
 import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/app_empty_state.dart';
+import '../../../core/widgets/safe_markdown_image.dart';
 import '../../../core/widgets/app_editor_panel.dart';
 import '../provider/markdown_provider.dart';
 
@@ -32,6 +35,7 @@ class _MarkdownPageState extends ConsumerState<MarkdownPage>
   String? _currentFileName;
   ExternalFileDocument? _externalDocument;
   String _lastSavedText = '';
+  late final String _dirtyOwner = 'markdown-editor-${identityHashCode(this)}';
 
   bool get _hasUnsavedChanges => _controller.text != _lastSavedText;
 
@@ -52,12 +56,14 @@ class _MarkdownPageState extends ConsumerState<MarkdownPage>
     _lastSavedText = _controller.text;
     _controller.addListener(() {
       ref.read(markdownTextProvider.notifier).state = _controller.text;
+      WindowCloseGuard.setDirty(_dirtyOwner, _hasUnsavedChanges);
       if (mounted) setState(() {});
     });
   }
 
   @override
   void dispose() {
+    WindowCloseGuard.clear(_dirtyOwner);
     _tabController.dispose();
     _controller.dispose();
     super.dispose();
@@ -113,6 +119,7 @@ class _MarkdownPageState extends ConsumerState<MarkdownPage>
       _externalDocument = null;
       _lastSavedText = '';
     });
+    await WindowCloseGuard.clear(_dirtyOwner);
   }
 
   Future<void> _saveFile({bool saveAs = false}) async {
@@ -129,6 +136,7 @@ class _MarkdownPageState extends ConsumerState<MarkdownPage>
         _currentFileName = normalized;
         _externalDocument = null;
         _lastSavedText = _controller.text;
+        WindowCloseGuard.clear(_dirtyOwner);
       });
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -175,28 +183,50 @@ class _MarkdownPageState extends ConsumerState<MarkdownPage>
       },
     );
     if (confirm != true) return;
-    await ExternalFileService.overwriteOriginal(external, _controller.text);
+    try {
+      final updated = await ExternalFileService.overwriteOriginal(
+        external,
+        _controller.text,
+      );
+      if (!mounted) return;
+      setState(() {
+        _externalDocument = updated;
+        _lastSavedText = _controller.text;
+      });
+      await WindowCloseGuard.clear(_dirtyOwner);
+      if (!mounted) return;
+    } on ExternalFileException catch (error) {
+      if (!mounted) return;
+      _showError(error.message);
+      return;
+    }
     if (!mounted) return;
-    setState(() {
-      _lastSavedText = _controller.text;
-    });
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Original markdown file saved')),
     );
   }
 
   Future<void> _saveExternalAs() async {
-    final name = _externalDocument?.name ?? _currentFileName ?? 'notes.md';
-    final path = await ExternalFileService.saveTextAs(
-      suggestedName: _suggestMarkdownExportName(name),
-      content: _controller.text,
-      allowedExtensions: const ['md', 'markdown', 'txt'],
-      dialogTitle: 'Save markdown copy',
-    );
+    final external = _externalDocument;
+    final name = external?.name ?? _currentFileName ?? 'notes.md';
+    final path = external == null
+        ? await ExternalFileService.saveTextAs(
+            suggestedName: _suggestMarkdownExportName(name),
+            content: _controller.text,
+            allowedExtensions: const ['md', 'markdown', 'txt'],
+            dialogTitle: 'Save markdown copy',
+          )
+        : await ExternalFileService.saveDocumentAs(
+            document: external,
+            content: _controller.text,
+            dialogTitle: 'Save markdown copy',
+          );
     if (!mounted || path == null) return;
     setState(() {
       _lastSavedText = _controller.text;
     });
+    await WindowCloseGuard.clear(_dirtyOwner);
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Markdown exported')),
     );
@@ -242,6 +272,7 @@ class _MarkdownPageState extends ConsumerState<MarkdownPage>
                     _externalDocument = null;
                     _lastSavedText = content;
                   });
+                  await WindowCloseGuard.clear(_dirtyOwner);
                 }
               },
             );
@@ -308,13 +339,20 @@ class _MarkdownPageState extends ConsumerState<MarkdownPage>
       _externalDocument = null;
       _lastSavedText = '';
     });
+    await WindowCloseGuard.clear(_dirtyOwner);
   }
 
   Future<void> _copyMarkdown() async {
-    await Clipboard.setData(ClipboardData(text: _controller.text));
+    final redacted = await SafeClipboard.copy(_controller.text);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Markdown copied to clipboard')),
+      SnackBar(
+        content: Text(
+          redacted
+              ? 'Markdown copied with likely secrets redacted'
+              : 'Markdown copied to clipboard',
+        ),
+      ),
     );
   }
 
@@ -364,122 +402,148 @@ class _MarkdownPageState extends ConsumerState<MarkdownPage>
   Widget build(BuildContext context) {
     final markdownText = ref.watch(markdownTextProvider);
     final isWide = MediaQuery.sizeOf(context).width >= AppBreakpoints.medium;
-    return PopScope(
-      canPop: !_hasUnsavedChanges,
-      onPopInvokedWithResult: (didPop, result) async {
-        if (didPop) return;
-        if (await _confirmDiscardChanges() && context.mounted) {
-          Navigator.of(context).pop(result);
-        }
+    return CallbackShortcuts(
+      bindings: <ShortcutActivator, VoidCallback>{
+        const SingleActivator(LogicalKeyboardKey.keyN, control: true): () {
+          _newFile();
+        },
+        const SingleActivator(LogicalKeyboardKey.keyO, control: true): () {
+          _openFile();
+        },
+        const SingleActivator(LogicalKeyboardKey.keyS, control: true): () {
+          _savePrimary();
+        },
+        const SingleActivator(
+          LogicalKeyboardKey.keyS,
+          control: true,
+          shift: true,
+        ): () {
+          if (_externalDocument == null) {
+            _saveFile(saveAs: true);
+          } else {
+            _saveExternalAs();
+          }
+        },
       },
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text(
-            _externalDocument?.name ?? _currentFileName ?? 'Markdown Editor',
-          ),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.note_add),
-              tooltip: 'New file',
-              onPressed: _newFile,
+      child: PopScope(
+        canPop: !_hasUnsavedChanges,
+        onPopInvokedWithResult: (didPop, result) async {
+          if (didPop) return;
+          if (await _confirmDiscardChanges() && context.mounted) {
+            Navigator.of(context).pop(result);
+          }
+        },
+        child: Scaffold(
+          appBar: AppBar(
+            title: Text(
+              _externalDocument?.name ?? _currentFileName ?? 'Markdown Editor',
             ),
-            IconButton(
-              icon: const Icon(Icons.folder_open),
-              tooltip: 'Open file',
-              onPressed: _openFile,
-            ),
-            IconButton(
-              icon: const Icon(Icons.save),
-              tooltip: 'Save file',
-              onPressed: _savePrimary,
-            ),
-            PopupMenuButton<String>(
-              onSelected: (value) {
-                switch (value) {
-                  case 'save_as':
-                    if (_externalDocument == null) {
-                      _saveFile(saveAs: true);
-                    } else {
-                      _saveExternalAs();
-                    }
-                    break;
-                  case 'save_internal':
-                    _saveFile(saveAs: true);
-                    break;
-                  case 'rename':
-                    _renameFile();
-                    break;
-                  case 'delete':
-                    _deleteFile();
-                    break;
-                  case 'copy':
-                    _copyMarkdown();
-                    break;
-                }
-              },
-              itemBuilder: (context) => const [
-                PopupMenuItem(value: 'save_as', child: Text('Save as')),
-                PopupMenuItem(
-                  value: 'save_internal',
-                  child: Text('Save internal copy'),
-                ),
-                PopupMenuItem(value: 'rename', child: Text('Rename')),
-                PopupMenuItem(value: 'delete', child: Text('Delete')),
-                PopupMenuItem(value: 'copy', child: Text('Copy markdown')),
-              ],
-            ),
-          ],
-        ),
-        body: Column(
-          children: [
-            _DocumentStatusBar(
-              externalDocument: _externalDocument,
-              internalName: _currentFileName,
-              hasUnsavedChanges: _hasUnsavedChanges,
-            ),
-            _MarkdownToolbar(onInsert: _insertMarkup),
-            Expanded(
-              child: Padding(
-                padding: AppSpacing.page(context).copyWith(top: AppSpacing.md),
-                child: isWide
-                    ? Row(
-                        children: [
-                          Expanded(
-                            child: _MarkdownEditor(controller: _controller),
-                          ),
-                          const SizedBox(width: AppSpacing.md),
-                          Expanded(child: _MarkdownPreview(data: markdownText)),
-                        ],
-                      )
-                    : Column(
-                        children: [
-                          AppCard(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: AppSpacing.xs,
-                            ),
-                            child: TabBar(
-                              controller: _tabController,
-                              tabs: const [
-                                Tab(text: 'Edit'),
-                                Tab(text: 'Preview'),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: AppSpacing.md),
-                          Expanded(
-                            child: TabBarView(
-                              controller: _tabController,
-                              children: [
-                                _MarkdownEditor(controller: _controller),
-                                _MarkdownPreview(data: markdownText),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.note_add),
+                tooltip: 'New file',
+                onPressed: _newFile,
               ),
-            ),
-          ],
+              IconButton(
+                icon: const Icon(Icons.folder_open),
+                tooltip: 'Open file',
+                onPressed: _openFile,
+              ),
+              IconButton(
+                icon: const Icon(Icons.save),
+                tooltip: 'Save file',
+                onPressed: _savePrimary,
+              ),
+              PopupMenuButton<String>(
+                onSelected: (value) {
+                  switch (value) {
+                    case 'save_as':
+                      if (_externalDocument == null) {
+                        _saveFile(saveAs: true);
+                      } else {
+                        _saveExternalAs();
+                      }
+                      break;
+                    case 'save_internal':
+                      _saveFile(saveAs: true);
+                      break;
+                    case 'rename':
+                      _renameFile();
+                      break;
+                    case 'delete':
+                      _deleteFile();
+                      break;
+                    case 'copy':
+                      _copyMarkdown();
+                      break;
+                  }
+                },
+                itemBuilder: (context) => const [
+                  PopupMenuItem(value: 'save_as', child: Text('Save as')),
+                  PopupMenuItem(
+                    value: 'save_internal',
+                    child: Text('Save internal copy'),
+                  ),
+                  PopupMenuItem(value: 'rename', child: Text('Rename')),
+                  PopupMenuItem(value: 'delete', child: Text('Delete')),
+                  PopupMenuItem(value: 'copy', child: Text('Copy markdown')),
+                ],
+              ),
+            ],
+          ),
+          body: Column(
+            children: [
+              _DocumentStatusBar(
+                externalDocument: _externalDocument,
+                internalName: _currentFileName,
+                hasUnsavedChanges: _hasUnsavedChanges,
+              ),
+              _MarkdownToolbar(onInsert: _insertMarkup),
+              Expanded(
+                child: Padding(
+                  padding:
+                      AppSpacing.page(context).copyWith(top: AppSpacing.md),
+                  child: isWide
+                      ? Row(
+                          children: [
+                            Expanded(
+                              child: _MarkdownEditor(controller: _controller),
+                            ),
+                            const SizedBox(width: AppSpacing.md),
+                            Expanded(
+                                child: _MarkdownPreview(data: markdownText)),
+                          ],
+                        )
+                      : Column(
+                          children: [
+                            AppCard(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: AppSpacing.xs,
+                              ),
+                              child: TabBar(
+                                controller: _tabController,
+                                tabs: const [
+                                  Tab(text: 'Edit'),
+                                  Tab(text: 'Preview'),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: AppSpacing.md),
+                            Expanded(
+                              child: TabBarView(
+                                controller: _tabController,
+                                children: [
+                                  _MarkdownEditor(controller: _controller),
+                                  _MarkdownPreview(data: markdownText),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -699,6 +763,7 @@ class _MarkdownPreview extends StatelessWidget {
       subtitle: 'Rendered document',
       child: Markdown(
         data: '$data\n\n',
+        imageBuilder: buildSafeMarkdownImage,
         padding: const EdgeInsets.all(AppSpacing.xl),
         styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
           p: Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.55),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+
+import '../security/safe_clipboard.dart';
 
 class AppCopyButton extends StatelessWidget {
   final String? value;
@@ -21,10 +22,13 @@ class AppCopyButton extends StatelessWidget {
       onPressed: value == null
           ? null
           : () async {
-              await Clipboard.setData(ClipboardData(text: value!));
+              final redacted = await SafeClipboard.copy(value!);
               if (!context.mounted) return;
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(feedback)),
+                SnackBar(
+                  content: Text(
+                      redacted ? '$feedback (secrets redacted)' : feedback),
+                ),
               );
             },
     );

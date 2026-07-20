@@ -5,6 +5,8 @@ import 'json_utils.dart';
 
 /// Utilities for comparing two pieces of text and producing a diff.
 class DiffUtils {
+  static const int maxTextBytes = 2 * 1024 * 1024;
+
   /// Computes a diff between [oldText] and [newText]. Returns a list of
   /// [dmp.Diff] objects indicating additions, deletions and equalities.
   static List<dmp.Diff> computeDiff(
@@ -12,6 +14,7 @@ class DiffUtils {
     String newText, {
     DiffOptions options = const DiffOptions(),
   }) {
+    _guardInputs(oldText, newText);
     String left = _prepareText(oldText, options);
     String right = _prepareText(newText, options);
 
@@ -80,9 +83,19 @@ class DiffUtils {
 
   /// Generates a Unified Diff format patch string.
   static String generatePatch(String oldText, String newText) {
+    _guardInputs(oldText, newText);
     final differ = dmp.DiffMatchPatch();
     final patches = differ.patch(oldText, newText);
     return dmp.patchToText(patches);
+  }
+
+  static void _guardInputs(String oldText, String newText) {
+    if (utf8.encode(oldText).length > maxTextBytes ||
+        utf8.encode(newText).length > maxTextBytes) {
+      throw ArgumentError(
+        'Each diff input must be 2 MB or smaller for reliable interactive use.',
+      );
+    }
   }
 
   /// Calculates a summary from a list of diffs.

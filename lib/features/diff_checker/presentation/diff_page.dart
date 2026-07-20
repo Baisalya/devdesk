@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:diff_match_patch/diff_match_patch.dart' as dmp;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,11 +11,13 @@ import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/app_empty_state.dart';
 import '../../../core/widgets/app_responsive_scaffold.dart';
 import '../../../core/files/external_file_service.dart';
+import '../../../core/security/data_redactor.dart';
+import '../../../core/security/safe_clipboard.dart';
+import '../../../core/utils/diff_utils.dart';
 import '../../../core/utils/secret_utils.dart';
 import '../provider/diff_provider.dart';
 import '../models/diff_models.dart';
 import '../provider/github_service.dart';
-import '../provider/git_service.dart';
 import 'widgets/diff_history_panel.dart';
 
 class DiffPage extends ConsumerStatefulWidget {
@@ -31,15 +31,20 @@ class _DiffPageState extends ConsumerState<DiffPage>
     with SingleTickerProviderStateMixin {
   late final TextEditingController _leftController;
   late final TextEditingController _rightController;
+  late final TextEditingController _githubUrlController;
   late final TabController _tabController;
 
   final List<DiffSession> _history = [];
+  int _diffGeneration = 0;
+  bool _diffRunning = false;
+  String? _diffError;
 
   @override
   void initState() {
     super.initState();
     _leftController = TextEditingController(text: ref.read(diffLeftProvider));
     _rightController = TextEditingController(text: ref.read(diffRightProvider));
+    _githubUrlController = TextEditingController();
     _tabController = TabController(length: 4, vsync: this);
 
     _leftController.addListener(() {
@@ -54,6 +59,7 @@ class _DiffPageState extends ConsumerState<DiffPage>
   void dispose() {
     _leftController.dispose();
     _rightController.dispose();
+    _githubUrlController.dispose();
     _tabController.dispose();
     super.dispose();
   }
@@ -139,7 +145,7 @@ class _DiffPageState extends ConsumerState<DiffPage>
                   _rightController.text = session.right.content;
                   ref.read(diffOptionsProvider.notifier).state =
                       session.options;
-                  computeDiff(ref);
+                  _runDiff(saveHistory: false);
                   _tabController.animateTo(0);
                 },
               ),
@@ -212,12 +218,14 @@ class _DiffPageState extends ConsumerState<DiffPage>
                 runSpacing: AppSpacing.sm,
                 children: [
                   FilledButton.icon(
-                    onPressed: () {
-                      computeDiff(ref);
-                      _saveToHistory();
-                    },
-                    icon: const Icon(Icons.compare_arrows),
-                    label: const Text('Compare'),
+                    onPressed: _diffRunning ? null : _runDiff,
+                    icon: _diffRunning
+                        ? const SizedBox.square(
+                            dimension: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.compare_arrows),
+                    label: Text(_diffRunning ? 'Comparing…' : 'Compare'),
                   ),
                   OutlinedButton.icon(
                     onPressed: _clear,
@@ -243,6 +251,17 @@ class _DiffPageState extends ConsumerState<DiffPage>
                 ],
               ),
               const SizedBox(height: AppSpacing.md),
+              Semantics(
+                liveRegion: true,
+                child: Text(
+                  _diffError ?? (_diffRunning ? 'Comparison in progress' : ''),
+                  style: _diffError == null
+                      ? Theme.of(context).textTheme.bodySmall
+                      : TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              ),
+              if (_diffError != null || _diffRunning)
+                const SizedBox(height: AppSpacing.sm),
               Expanded(
                 flex: isWide ? 4 : 5,
                 child: _DiffResultPanel(
@@ -267,11 +286,11 @@ class _DiffPageState extends ConsumerState<DiffPage>
           children: [
             Icon(Icons.file_copy, size: 64, color: colorScheme.primary),
             const SizedBox(height: AppSpacing.md),
-            Text('File & Folder Comparison',
+            Text('Local File Comparison',
                 style: Theme.of(context).textTheme.headlineSmall),
             const SizedBox(height: AppSpacing.sm),
             const Text(
-              'Select two files or two ZIP archives to compare their contents.',
+              'Select two supported text, code, Markdown, or JSON files and compare their contents locally.',
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: AppSpacing.xl),
@@ -291,16 +310,6 @@ class _DiffPageState extends ConsumerState<DiffPage>
                 ),
               ],
             ),
-            if (Platform.isWindows) ...[
-              const SizedBox(height: AppSpacing.lg),
-              const Divider(),
-              const SizedBox(height: AppSpacing.lg),
-              FilledButton.icon(
-                onPressed: () => _compareGit(context),
-                icon: const Icon(Icons.account_tree),
-                label: const Text('Open Git Workspace'),
-              ),
-            ],
           ],
         ),
       ),
@@ -308,7 +317,6 @@ class _DiffPageState extends ConsumerState<DiffPage>
   }
 
   Widget _buildGitHubTab() {
-    final urlController = TextEditingController();
     final colorScheme = Theme.of(context).colorScheme;
     return Center(
       child: Container(
@@ -323,17 +331,17 @@ class _DiffPageState extends ConsumerState<DiffPage>
                 style: Theme.of(context).textTheme.headlineSmall),
             const SizedBox(height: AppSpacing.md),
             TextField(
-              controller: urlController,
+              controller: _githubUrlController,
               decoration: const InputDecoration(
-                labelText: 'GitHub Repository URL',
-                hintText: 'https://github.com/owner/repo',
+                labelText: 'Public GitHub file URL',
+                hintText: 'https://github.com/owner/repo/blob/main/file.txt',
                 border: OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: AppSpacing.md),
             FilledButton.icon(
               onPressed: () async {
-                final ref = GitHubService.parseUrl(urlController.text);
+                final ref = GitHubService.parseUrl(_githubUrlController.text);
                 if (ref == null) {
                   ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('Invalid GitHub URL')));
@@ -362,13 +370,18 @@ class _DiffPageState extends ConsumerState<DiffPage>
                   } else {
                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
                         content: Text(
-                            'Could not fetch file or ZIP comparison not yet implemented for UI')));
+                            'The public file could not be fetched. Check the URL, branch, path, and network access.')));
                   }
                 } catch (e) {
                   if (mounted) {
                     Navigator.pop(context);
-                    ScaffoldMessenger.of(context)
-                        .showSnackBar(SnackBar(content: Text(e.toString())));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'GitHub fetch failed safely: ${DataRedactor.safeError(e)}',
+                        ),
+                      ),
+                    );
                   }
                 }
               },
@@ -439,6 +452,36 @@ class _DiffPageState extends ConsumerState<DiffPage>
     );
   }
 
+  Future<void> _runDiff({bool saveHistory = true}) async {
+    final operationId = ++_diffGeneration;
+    setState(() {
+      _diffRunning = true;
+      _diffError = null;
+    });
+    try {
+      final options = ref.read(diffOptionsProvider);
+      final diffs = await computeDiffInWorker(
+        left: _leftController.text,
+        right: _rightController.text,
+        options: options,
+      );
+      if (!mounted || operationId != _diffGeneration) return;
+      ref.read(diffResultProvider.notifier).state = diffs;
+      ref.read(diffSummaryProvider.notifier).state =
+          DiffUtils.calculateSummary(diffs);
+      if (saveHistory) _saveToHistory();
+    } catch (error) {
+      if (!mounted || operationId != _diffGeneration) return;
+      setState(() {
+        _diffError = DataRedactor.safeError(error);
+      });
+    } finally {
+      if (mounted && operationId == _diffGeneration) {
+        setState(() => _diffRunning = false);
+      }
+    }
+  }
+
   void _saveToHistory() {
     final summary = ref.read(diffSummaryProvider);
     if (summary == null) return;
@@ -447,11 +490,13 @@ class _DiffPageState extends ConsumerState<DiffPage>
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       title: 'Comparison at ${_formatTime(DateTime.now())}',
       left: DiffContent(
-          content: _leftController.text,
-          source: ref.read(diffSourceLeftProvider)),
+        content: DataRedactor.redactText(_leftController.text),
+        source: ref.read(diffSourceLeftProvider),
+      ),
       right: DiffContent(
-          content: _rightController.text,
-          source: ref.read(diffSourceRightProvider)),
+        content: DataRedactor.redactText(_rightController.text),
+        source: ref.read(diffSourceRightProvider),
+      ),
       options: ref.read(diffOptionsProvider),
       createdAt: DateTime.now(),
       summary: summary,
@@ -459,26 +504,41 @@ class _DiffPageState extends ConsumerState<DiffPage>
 
     setState(() {
       _history.insert(0, session);
+      if (_history.length > 20) {
+        _history.removeRange(20, _history.length);
+      }
     });
   }
 
   String _formatTime(DateTime date) =>
       '${date.hour}:${date.minute}:${date.second}';
 
-  void _handleExport(String format) {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text('Exporting as $format...')));
-  }
-
-  Future<void> _compareGit(BuildContext context) async {
-    final installed = await GitService.isGitInstalled();
-    if (!installed) {
-      if (!context.mounted) return;
+  Future<void> _handleExport(String format) async {
+    final left = DataRedactor.redactText(_leftController.text);
+    final right = DataRedactor.redactText(_rightController.text);
+    final patch = DiffUtils.generatePatch(left, right);
+    if (format == 'patch') {
+      await SafeClipboard.copy(patch, forceRedaction: true);
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Git is not installed or not in PATH')),
+        const SnackBar(content: Text('Redacted patch copied to clipboard')),
       );
       return;
     }
+    final markdown = format == 'md';
+    final content = markdown
+        ? '# DevDesk diff report\n\n## Source A\n\n```text\n$left\n```\n\n## Source B\n\n```text\n$right\n```\n\n## Unified patch\n\n```diff\n$patch\n```\n'
+        : 'DEVDESK DIFF REPORT\n\nSOURCE A\n$left\n\nSOURCE B\n$right\n\nUNIFIED PATCH\n$patch\n';
+    final path = await ExternalFileService.saveTextAs(
+      suggestedName: markdown ? 'devdesk-diff.md' : 'devdesk-diff.txt',
+      content: content,
+      allowedExtensions: [markdown ? 'md' : 'txt'],
+      dialogTitle: 'Export redacted diff report',
+    );
+    if (!mounted || path == null) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Redacted diff report exported')),
+    );
   }
 }
 
@@ -594,10 +654,36 @@ class _DiffText extends StatelessWidget {
         ),
       );
     }
-    return SelectableText.rich(
-      TextSpan(
-        style: AppTypography.mono(context),
-        children: spans,
+    final semanticBuffer = StringBuffer('Diff result. ');
+    const semanticLimit = 20000;
+    for (final diff in diffs) {
+      final operation = switch (diff.operation) {
+        dmp.DIFF_INSERT => 'Inserted',
+        dmp.DIFF_DELETE => 'Deleted',
+        _ => 'Unchanged',
+      };
+      semanticBuffer
+        ..write(operation)
+        ..write(': ')
+        ..write(diff.text)
+        ..write('. ');
+      if (semanticBuffer.length >= semanticLimit) {
+        semanticBuffer
+            .write('Remaining diff omitted from screen reader preview.');
+        break;
+      }
+    }
+    return Semantics(
+      container: true,
+      readOnly: true,
+      label: semanticBuffer.toString(),
+      child: ExcludeSemantics(
+        child: SelectableText.rich(
+          TextSpan(
+            style: AppTypography.mono(context),
+            children: spans,
+          ),
+        ),
       ),
     );
   }

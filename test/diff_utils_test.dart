@@ -22,4 +22,12 @@ void main() {
   test('diff handles empty input', () {
     expect(DiffUtils.computeDiff('', ''), isEmpty);
   });
+
+  test('diff rejects oversized interactive inputs', () {
+    final oversized = 'x' * (DiffUtils.maxTextBytes + 1);
+    expect(
+      () => DiffUtils.computeDiff(oversized, ''),
+      throwsA(isA<ArgumentError>()),
+    );
+  });
 }

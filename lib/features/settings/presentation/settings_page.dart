@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/app.dart';
@@ -9,10 +8,18 @@ import '../../../core/design/app_colors.dart';
 import '../../../core/design/app_spacing.dart';
 import '../../../core/files/external_file.dart';
 import '../../../core/files/external_file_service.dart';
+import '../../../core/security/data_redactor.dart';
+import '../../../core/security/safe_clipboard.dart';
 import '../../../core/storage/backup_utils.dart';
 import '../../../core/storage/local_storage.dart';
 import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/app_section_header.dart';
+import '../../api_tester/provider/api_provider.dart';
+import '../../api_tester/provider/api_workspace_provider.dart';
+import '../../dashboard/provider/tool_providers.dart';
+import '../../markdown/provider/markdown_provider.dart';
+import '../../markdown/vault/provider/vault_provider.dart';
+import '../../snippets/provider/snippets_provider.dart';
 
 /// Settings page for theme selection, data management and about information.
 class SettingsPage extends ConsumerStatefulWidget {
@@ -85,13 +92,15 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               _SettingsTile(
                 icon: Icons.download,
                 title: 'Export Backup File',
-                subtitle: 'Save all local app data as JSON.',
+                subtitle:
+                    'Save local app data as JSON; protected secrets are excluded.',
                 onTap: _exportBackupFile,
               ),
               _SettingsTile(
                 icon: Icons.copy,
                 title: 'Copy Backup JSON',
-                subtitle: 'Clipboard fallback for backup export.',
+                subtitle:
+                    'Copy a redacted backup; protected secrets are excluded.',
                 onTap: _exportBackupClipboard,
               ),
               _SettingsTile(
@@ -138,7 +147,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 icon: Icons.security,
                 title: 'Sensitive headers',
                 subtitle:
-                    'Authorization, token, API key and secret headers are stripped unless you explicitly opt in.',
+                    'History, reports, snippets, exports and backups redact secret-like values. Workspace secrets use platform protection where available.',
               ),
             ],
           ),
@@ -165,7 +174,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           const SizedBox(height: AppSpacing.md),
           _SettingsSection(
             title: 'About',
-            subtitle: 'DevKit Offline release information.',
+            subtitle: 'DevDesk release information.',
             children: [
               _SettingsTile(
                 icon: Icons.info,
@@ -208,8 +217,23 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       },
     );
     if (confirm == true) {
-      await LocalStorage.clearAll();
-      _showSnack('All data cleared');
+      ref.read(apiWorkspaceProvider.notifier).cancelRequest();
+      cancelApiRequest(ref);
+      try {
+        await LocalStorage.clearAll();
+      } catch (error) {
+        _showSnack(
+          'Local data could not be cleared safely: ${DataRedactor.safeError(error)}',
+        );
+        return;
+      }
+      _invalidateDataProviders();
+      if (!mounted) return;
+      Navigator.of(context).pushNamedAndRemoveUntil(
+        '/dashboard',
+        (route) => false,
+      );
+      _showSnack('All local data and protected secrets were cleared');
     }
   }
 
@@ -228,8 +252,12 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
   Future<void> _exportBackupClipboard() async {
     final export = await _exportData();
-    await Clipboard.setData(ClipboardData(text: export));
-    _showSnack('Backup copied to clipboard');
+    await SafeClipboard.copy(
+      export,
+      content: SafeClipboardContent.json,
+      forceRedaction: true,
+    );
+    _showSnack('Backup copied with secret values excluded');
   }
 
   Future<void> _importBackupFile() async {
@@ -245,7 +273,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     } on ExternalFileException catch (e) {
       _showSnack(e.message);
     } catch (e) {
-      _showSnack('Failed to import backup: $e');
+      _showSnack('Backup import failed safely: ${DataRedactor.safeError(e)}');
     }
   }
 
@@ -288,12 +316,15 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       final preview = BackupUtils.preview(document);
       final replace = await _showImportPreview(sourceName, preview);
       if (replace == null) return;
+      ref.read(apiWorkspaceProvider.notifier).cancelRequest();
+      cancelApiRequest(ref);
       await LocalStorage.importAll(document, replace: replace);
+      _invalidateDataProviders();
       _showSnack(replace ? 'Backup restored' : 'Backup merged');
     } on FormatException catch (e) {
       _showSnack('Invalid backup: ${e.message}');
     } catch (e) {
-      _showSnack('Failed to import backup: $e');
+      _showSnack('Backup import failed safely: ${DataRedactor.safeError(e)}');
     }
   }
 
@@ -367,6 +398,22 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     );
   }
 
+  void _invalidateDataProviders() {
+    ref
+      ..invalidate(apiWorkspaceProvider)
+      ..invalidate(apiHistoryProvider)
+      ..invalidate(apiEnvironmentsProvider)
+      ..invalidate(dashboardPrefsProvider)
+      ..invalidate(markdownFilesProvider)
+      ..invalidate(markdownTextProvider)
+      ..invalidate(vaultNotesProvider)
+      ..invalidate(selectedNoteIdProvider)
+      ..invalidate(openedNoteIdsProvider)
+      ..invalidate(snippetsProvider)
+      ..invalidate(snippetsSearchProvider)
+      ..invalidate(themeModeProvider);
+  }
+
   void _showPrivacy() {
     showDialog<void>(
       context: context,
@@ -375,7 +422,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           title: const Text('Privacy'),
           content: const SingleChildScrollView(
             child: Text(
-              'DevDesk stores data on this device. It has no analytics, no Firebase, and no backend. External files stay local and are read only after you choose them. The API Tester uses the internet only when you manually send a request to the URL you entered. JWT decoding stays local.',
+              'DevDesk stores ordinary app records on this device and has no analytics, Firebase, account service, sync service, or DevDesk backend. Protected API workspace secrets use Android Keystore or Windows DPAPI when available and are session-only on unsupported platforms. External files are processed locally after you choose them. Network access occurs only when you send an API request or explicitly fetch a public GitHub file. Web builds are also subject to browser CORS and mixed-content rules. JWT decoding stays local.',
             ),
           ),
           actions: [

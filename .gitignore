@@ -43,3 +43,27 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Local secrets, signing material, generated release artifacts, and app data
+.env
+.env.*
+!.env.example
+android/key.properties
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.cer
+*.crt
+*.pem
+*.key
+.artifacts/
+dist/
+release-artifacts/
+*.zip
+*.apk
+*.aab
+*.msix
+*.msi
+*.exe.sha256
+*.hive

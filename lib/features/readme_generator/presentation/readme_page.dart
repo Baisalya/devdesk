@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/design/app_breakpoints.dart';
@@ -8,8 +7,10 @@ import '../../../core/design/app_colors.dart';
 import '../../../core/design/app_spacing.dart';
 import '../../../core/design/app_typography.dart';
 import '../../../core/files/external_file_service.dart';
+import '../../../core/security/safe_clipboard.dart';
 import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/app_empty_state.dart';
+import '../../../core/widgets/safe_markdown_image.dart';
 import '../../../core/widgets/app_section_header.dart';
 import '../../markdown/provider/markdown_provider.dart';
 import '../../markdown/vault/provider/vault_provider.dart';
@@ -121,10 +122,14 @@ class _ReadmeGeneratorPageState extends ConsumerState<ReadmeGeneratorPage>
 
   Future<void> _copyToClipboard() async {
     if (_generated.isEmpty) return;
-    await Clipboard.setData(ClipboardData(text: _generated));
+    final redacted = await SafeClipboard.copy(_generated);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('README copied to clipboard')),
+      SnackBar(
+        content: Text(redacted
+            ? 'README copied with secrets redacted'
+            : 'README copied to clipboard'),
+      ),
     );
   }
 
@@ -477,6 +482,7 @@ class _ReadmeOutput extends StatelessWidget {
                       );
                       final preview = Markdown(
                         data: generated,
+                        imageBuilder: buildSafeMarkdownImage,
                         padding: const EdgeInsets.all(AppSpacing.xl),
                       );
                       if (constraints.maxWidth >= 840) {

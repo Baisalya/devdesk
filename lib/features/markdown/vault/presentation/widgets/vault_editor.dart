@@ -2,14 +2,17 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../../core/design/app_colors.dart';
 import '../../../../../core/design/app_spacing.dart';
 import '../../../../../core/design/app_typography.dart';
 import '../../../../../core/files/external_file_service.dart';
+import '../../../../../core/platform/window_close_guard.dart';
+import '../../../../../core/security/safe_clipboard.dart';
 import '../../../../../core/widgets/app_empty_state.dart';
+import '../../../../../core/widgets/safe_markdown_image.dart';
 import '../../../../../core/widgets/app_editor_panel.dart';
 import '../../../../snippets/models/snippet.dart';
 import '../../../../snippets/provider/snippets_provider.dart';
@@ -43,6 +46,7 @@ class _VaultEditorState extends ConsumerState<VaultEditor> {
   bool _hasUnsavedChanges = false;
   bool _maskSecretsInPreview = true;
   late String _lastSavedContent;
+  late final String _dirtyOwner = 'markdown-vault-${identityHashCode(this)}';
 
   @override
   void initState() {
@@ -64,6 +68,7 @@ class _VaultEditorState extends ConsumerState<VaultEditor> {
       if (!mounted) return;
       ref.read(vaultHasUnsavedChangesProvider.notifier).state =
           _hasUnsavedChanges;
+      WindowCloseGuard.setDirty(_dirtyOwner, _hasUnsavedChanges);
       if (widget.note.draftContent != null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Restored last autosaved draft')),
@@ -85,6 +90,7 @@ class _VaultEditorState extends ConsumerState<VaultEditor> {
       _controller.addListener(_onContentChanged);
       ref.read(vaultHasUnsavedChangesProvider.notifier).state =
           _hasUnsavedChanges;
+      WindowCloseGuard.setDirty(_dirtyOwner, _hasUnsavedChanges);
       setState(() {});
     } else if (!_hasUnsavedChanges &&
         widget.note.content != _lastSavedContent) {
@@ -97,6 +103,7 @@ class _VaultEditorState extends ConsumerState<VaultEditor> {
 
   @override
   void dispose() {
+    WindowCloseGuard.clear(_dirtyOwner);
     _draftTimer?.cancel();
     _jumpSubscription?.close();
     _controller.dispose();
@@ -112,6 +119,7 @@ class _VaultEditorState extends ConsumerState<VaultEditor> {
     if (changed != _hasUnsavedChanges) {
       _hasUnsavedChanges = changed;
       ref.read(vaultHasUnsavedChangesProvider.notifier).state = changed;
+      WindowCloseGuard.setDirty(_dirtyOwner, changed);
     }
     setState(() {});
   }
@@ -135,6 +143,7 @@ class _VaultEditorState extends ConsumerState<VaultEditor> {
       _hasUnsavedChanges = false;
     });
     ref.read(vaultHasUnsavedChangesProvider.notifier).state = false;
+    WindowCloseGuard.clear(_dirtyOwner);
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Note saved')),
     );
@@ -441,9 +450,13 @@ class _VaultEditorState extends ConsumerState<VaultEditor> {
       _showSnack('No fenced code blocks found.');
       return;
     }
-    await Clipboard.setData(ClipboardData(text: matches.join('\n\n')));
+    final redacted = await SafeClipboard.copy(matches.join('\n\n'));
     if (!mounted) return;
-    _showSnack('Copied ${matches.length} code block(s)');
+    _showSnack(
+      redacted
+          ? 'Copied ${matches.length} code block(s) with likely secrets redacted'
+          : 'Copied ${matches.length} code block(s)',
+    );
   }
 
   void _showSnack(String message) {
@@ -750,6 +763,7 @@ class _VaultPreview extends StatelessWidget {
             )
           : Markdown(
               data: '$cleanContent\n\n',
+              imageBuilder: buildSafeMarkdownImage,
               selectable: true,
               padding: const EdgeInsets.all(AppSpacing.md),
               styleSheet:

@@ -1,16 +1,19 @@
-import 'dart:async';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
 import '../../../core/errors/failure.dart';
+import '../../../core/network/bounded_http.dart';
+import '../../../core/security/data_redactor.dart';
 import '../../../core/storage/local_storage.dart';
 import '../../../core/utils/json_utils.dart';
 import '../models/api_environment.dart';
 import '../models/api_history_entry.dart';
 import '../models/api_request.dart';
 import '../models/api_response.dart';
+import '../models/api_workspace_models.dart';
 import '../utils/api_environment_utils.dart';
+import '../utils/api_workspace_executor.dart';
+import '../utils/api_workspace_utils.dart';
 
 /// Current HTTP method selected.
 final methodProvider = StateProvider<String>((ref) => 'GET');
@@ -25,6 +28,39 @@ final apiLoadingProvider = StateProvider<bool>((ref) => false);
 final apiErrorProvider = StateProvider<String?>((ref) => null);
 
 final apiRawResponseProvider = StateProvider<bool>((ref) => false);
+
+class ApiOperationController extends StateNotifier<int> {
+  ApiOperationController() : super(0);
+
+  OperationCancellationToken? _token;
+
+  ({int id, OperationCancellationToken token}) start() {
+    _token?.cancel();
+    final token = OperationCancellationToken();
+    _token = token;
+    state += 1;
+    return (id: state, token: token);
+  }
+
+  bool isCurrent(int id, OperationCancellationToken token) {
+    return id == state && identical(token, _token) && !token.isCancelled;
+  }
+
+  void finish(OperationCancellationToken token) {
+    if (identical(token, _token)) _token = null;
+  }
+
+  void cancel() {
+    _token?.cancel();
+    _token = null;
+    state += 1;
+  }
+}
+
+final apiOperationProvider =
+    StateNotifierProvider<ApiOperationController, int>((ref) {
+  return ApiOperationController();
+});
 
 final apiTimeoutProvider = StateProvider<Duration>((ref) {
   return const Duration(seconds: 30);
@@ -97,30 +133,6 @@ final queryParamsProvider =
 /// Last API response.
 final apiResponseProvider = StateProvider<ApiResponse?>((ref) => null);
 final lastApiRequestProvider = StateProvider<ApiRequest?>((ref) => null);
-
-class SaveSensitiveHeadersNotifier extends StateNotifier<bool> {
-  SaveSensitiveHeadersNotifier() : super(false) {
-    _load();
-  }
-
-  static const _storageKey = 'api_save_sensitive_headers';
-
-  Future<void> _load() async {
-    final box = await LocalStorage.openBox<dynamic>(LocalStorage.settingsBox);
-    state = box.get(_storageKey) == true;
-  }
-
-  Future<void> setValue(bool value) async {
-    state = value;
-    final box = await LocalStorage.openBox<dynamic>(LocalStorage.settingsBox);
-    await box.put(_storageKey, value);
-  }
-}
-
-final saveSensitiveHeadersProvider =
-    StateNotifierProvider<SaveSensitiveHeadersNotifier, bool>((ref) {
-  return SaveSensitiveHeadersNotifier();
-});
 
 class ApiEnvironmentsState {
   final String selectedName;
@@ -232,14 +244,26 @@ final apiHistoryProvider = FutureProvider<List<ApiHistoryEntry>>((ref) async {
   return list;
 });
 
-Future<void> saveRequestToHistory(
-  ApiRequest request, {
-  bool saveSensitiveHeaders = false,
-}) async {
+Future<void> saveRequestToHistory(ApiRequest request) async {
   final box = await LocalStorage.openBox<Map>(LocalStorage.apiHistoryBox);
-  final stored =
-      saveSensitiveHeaders ? request : request.withoutSensitiveHeaders();
-  await box.add(stored.toMap());
+  final safe = DataRedactor.deepRedact(request.toMap());
+  await box.add(Map<String, dynamic>.from(safe as Map));
+  final entries = <MapEntry<dynamic, DateTime>>[];
+  for (final key in box.keys) {
+    final raw = box.get(key);
+    if (raw is! Map) continue;
+    final timestamp = raw['timestamp'];
+    entries.add(
+      MapEntry(
+        key,
+        DateTime.fromMillisecondsSinceEpoch(timestamp is int ? timestamp : 0),
+      ),
+    );
+  }
+  entries.sort((a, b) => b.value.compareTo(a.value));
+  for (final stale in entries.skip(100)) {
+    await box.delete(stale.key);
+  }
 }
 
 Future<void> deleteApiHistoryEntry(dynamic key) async {
@@ -284,6 +308,11 @@ Future<ApiResponse> sendRequest(WidgetRef ref) async {
   final client = ref.read(apiClientProvider);
   final timeout = ref.read(apiTimeoutProvider);
 
+  if (ref.read(apiLoadingProvider)) {
+    throw ApiFailure('Another API request is already running.');
+  }
+  final controller = ref.read(apiOperationProvider.notifier);
+  final operation = controller.start();
   ref.read(apiLoadingProvider.notifier).state = true;
   ref.read(apiErrorProvider.notifier).state = null;
   try {
@@ -291,75 +320,137 @@ Future<ApiResponse> sendRequest(WidgetRef ref) async {
       request: request,
       client: client,
       timeout: timeout,
+      cancellationToken: operation.token,
     );
-    ref.read(lastApiRequestProvider.notifier).state = request;
+    operation.token.throwIfCancelled();
+    if (!controller.isCurrent(operation.id, operation.token)) {
+      throw ApiFailure('Request cancelled.');
+    }
+    final safeRequest = request.sanitized();
+    ref.read(lastApiRequestProvider.notifier).state = safeRequest;
     ref.read(apiResponseProvider.notifier).state = apiResponse;
-    await saveRequestToHistory(
-      request,
-      saveSensitiveHeaders: ref.read(saveSensitiveHeadersProvider),
-    );
-    ref.invalidate(apiHistoryProvider);
+    await saveRequestToHistory(safeRequest);
+    operation.token.throwIfCancelled();
+    if (controller.isCurrent(operation.id, operation.token)) {
+      ref.invalidate(apiHistoryProvider);
+    }
     return apiResponse;
-  } on TimeoutException {
-    throw ApiFailure('Request timed out after ${timeout.inSeconds} seconds');
   } on ApiFailure {
     rethrow;
   } catch (e) {
-    throw ApiFailure('Request failed: $e');
+    throw ApiFailure('Request failed safely: ${DataRedactor.safeError(e)}');
   } finally {
-    ref.read(apiLoadingProvider.notifier).state = false;
+    if (controller.isCurrent(operation.id, operation.token)) {
+      ref.read(apiLoadingProvider.notifier).state = false;
+    }
+    controller.finish(operation.token);
   }
+}
+
+void cancelApiRequest(WidgetRef ref) {
+  ref.read(apiOperationProvider.notifier).cancel();
+  ref.invalidate(apiClientProvider);
+  ref.read(apiLoadingProvider.notifier).state = false;
+  ref.read(apiErrorProvider.notifier).state = 'Request cancelled.';
 }
 
 Future<ApiResponse> executeApiRequest({
   required ApiRequest request,
   required http.Client client,
   required Duration timeout,
+  OperationCancellationToken? cancellationToken,
+  int maxResponseBytes = BoundedHttpReader.defaultMaxResponseBytes,
+  Duration connectTimeout = BoundedHttpReader.defaultConnectTimeout,
+  Duration readIdleTimeout = BoundedHttpReader.defaultReadIdleTimeout,
 }) async {
-  final uri = _buildUri(request);
-  final stopwatch = Stopwatch()..start();
-  try {
-    final httpRequest = http.Request(request.method.toUpperCase(), uri)
-      ..headers.addAll(request.headers)
-      ..followRedirects = request.followRedirects;
-    final method = request.method.toUpperCase();
-    if ((request.body ?? '').isNotEmpty &&
-        method != 'GET' &&
-        method != 'HEAD') {
-      httpRequest.body = request.body!;
-    }
-    final streamed = await client.send(httpRequest).timeout(timeout);
-    final response = await http.Response.fromStream(streamed);
-    stopwatch.stop();
-    return ApiResponse(
-      method: request.method,
-      url: uri.toString(),
-      statusCode: response.statusCode,
-      headers: response.headers,
-      body: response.body,
-      duration: stopwatch.elapsed,
-    );
-  } on TimeoutException {
-    throw ApiFailure('Request timed out after ${timeout.inSeconds} seconds');
-  }
+  final prepared = prepareApiRequest(request: request, timeout: timeout);
+  final response = await ApiWorkspaceExecutor.execute(
+    prepared: prepared,
+    client: client,
+    cancellationToken: cancellationToken,
+    maxResponseBytes: maxResponseBytes,
+    connectTimeout: connectTimeout,
+    readIdleTimeout: readIdleTimeout,
+  );
+  return ApiResponse(
+    method: response.method,
+    url: response.url,
+    statusCode: response.statusCode,
+    headers: response.headers,
+    body: response.body,
+    duration: Duration(milliseconds: response.durationMs),
+  );
 }
 
-Uri _buildUri(ApiRequest request) {
-  if (request.url.isEmpty) {
-    throw ApiFailure('URL is required');
+/// Adapts the compact API tester to the same validated request model used by
+/// workspaces and collection runs. No network path may bypass this model.
+ApiPreparedRequest prepareApiRequest({
+  required ApiRequest request,
+  required Duration timeout,
+}) {
+  final method = request.method.toUpperCase();
+  final rawBody = request.body ?? '';
+  final contentType = request.headers.entries
+      .where((entry) => entry.key.toLowerCase() == 'content-type')
+      .map((entry) => entry.value.toLowerCase())
+      .firstOrNull;
+
+  var bodyType = ApiRequestBodyType.none;
+  var formFields = const <String, String>{};
+  if (rawBody.isNotEmpty) {
+    if (contentType?.contains('application/json') ?? false) {
+      bodyType = ApiRequestBodyType.rawJson;
+    } else if (contentType?.contains('application/x-www-form-urlencoded') ??
+        false) {
+      try {
+        formFields = Uri.splitQueryString(rawBody);
+      } on FormatException {
+        throw ApiFailure(
+          'URL-encoded form body is invalid.',
+          code: 'DD-API-BODY-FORM',
+          category: FailureCategory.validation,
+          retryable: false,
+        );
+      }
+      bodyType = ApiRequestBodyType.formUrlEncoded;
+    } else if (contentType?.contains('multipart/form-data') ?? false) {
+      throw ApiFailure(
+        'Use the workspace form-fields editor for multipart requests; manual multipart boundaries are not accepted.',
+        code: 'DD-API-BODY-MULTIPART',
+        category: FailureCategory.validation,
+        retryable: false,
+      );
+    } else {
+      bodyType = ApiRequestBodyType.rawText;
+    }
   }
-  final uri = Uri.tryParse(request.url);
-  if (uri == null ||
-      !uri.hasScheme ||
-      (uri.scheme != 'http' && uri.scheme != 'https') ||
-      uri.host.isEmpty) {
-    throw ApiFailure('Enter a valid http or https URL');
-  }
-  if (request.queryParams.isEmpty) return uri;
-  return uri.replace(
-    queryParameters: {
-      ...uri.queryParameters,
-      ...request.queryParams,
-    },
+
+  final source = ApiRequestItem(
+    id: 'quick-request',
+    name: 'Quick request',
+    method: method,
+    url: request.url,
+    headers: request.headers,
+    queryParams: request.queryParams,
+    body: ApiRequestBody(
+      type: bodyType,
+      raw: rawBody,
+      formFields: formFields,
+    ),
+    timeoutMs: timeout.inMilliseconds,
+    followRedirects: request.followRedirects,
+  );
+  return ApiPreparedRequest(
+    source: source,
+    method: method,
+    url: request.url,
+    headers: request.headers,
+    queryParams: request.queryParams,
+    bodyType: bodyType,
+    body: rawBody.isEmpty ? null : rawBody,
+    formFields: formFields,
+    timeout: timeout,
+    followRedirects: request.followRedirects,
+    unresolvedVariables: const [],
   );
 }

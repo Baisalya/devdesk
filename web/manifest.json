@@ -1,12 +1,12 @@
 {
-    "name": "devdesk",
-    "short_name": "devdesk",
+    "name": "DevDesk",
+    "short_name": "DevDesk",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0B0F14",
     "theme_color": "#2563EB",
-    "description": "A new Flutter project.",
-    "orientation": "portrait-primary",
+    "description": "Offline-first developer toolbox; network access occurs only for user-initiated API and link operations.",
+    "orientation": "any",
     "prefer_related_applications": false,
     "icons": [
         {

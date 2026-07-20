@@ -1,3 +1,5 @@
+import '../../../core/security/data_redactor.dart';
+
 import 'api_environment.dart';
 import 'api_request.dart';
 import 'api_response.dart';
@@ -385,6 +387,8 @@ class ApiResponseRecord {
   final String body;
   final int durationMs;
   final int sizeBytes;
+  final bool isBinary;
+  final String contentType;
   final DateTime timestamp;
   final List<ApiAssertionResult> assertionResults;
   final List<ApiExtractionResult> extractionResults;
@@ -398,6 +402,8 @@ class ApiResponseRecord {
     required this.body,
     required this.durationMs,
     required this.sizeBytes,
+    this.isBinary = false,
+    this.contentType = '',
     DateTime? timestamp,
     this.assertionResults = const [],
     this.extractionResults = const [],
@@ -416,6 +422,8 @@ class ApiResponseRecord {
     String? body,
     int? durationMs,
     int? sizeBytes,
+    bool? isBinary,
+    String? contentType,
     DateTime? timestamp,
     List<ApiAssertionResult>? assertionResults,
     List<ApiExtractionResult>? extractionResults,
@@ -429,6 +437,8 @@ class ApiResponseRecord {
       body: body ?? this.body,
       durationMs: durationMs ?? this.durationMs,
       sizeBytes: sizeBytes ?? this.sizeBytes,
+      isBinary: isBinary ?? this.isBinary,
+      contentType: contentType ?? this.contentType,
       timestamp: timestamp ?? this.timestamp,
       assertionResults: assertionResults ?? this.assertionResults,
       extractionResults: extractionResults ?? this.extractionResults,
@@ -460,20 +470,55 @@ class ApiResponseRecord {
     );
   }
 
+  ApiResponseRecord sanitized() {
+    return copyWith(
+      url: DataRedactor.redactUrl(url),
+      headers: Map.fromEntries(
+        headers.entries.where(
+          (entry) => !DataRedactor.isSensitiveName(entry.key),
+        ),
+      ),
+      body: DataRedactor.redactJsonText(body),
+      assertionResults: [
+        for (final result in assertionResults)
+          ApiAssertionResult(
+            assertionId: result.assertionId,
+            name: DataRedactor.redactText(result.name),
+            passed: result.passed,
+            message: DataRedactor.redactText(result.message),
+          ),
+      ],
+      extractionResults: [
+        for (final result in extractionResults)
+          ApiExtractionResult(
+            ruleId: result.ruleId,
+            variableName: result.variableName,
+            value: result.isSecret ? '' : DataRedactor.redactText(result.value),
+            isSecret: result.isSecret,
+            success: result.success,
+            message: DataRedactor.redactText(result.message),
+          ),
+      ],
+    );
+  }
+
   Map<String, dynamic> toMap({bool includeSecrets = true}) {
+    final response = includeSecrets ? this : sanitized();
     return {
-      'id': id,
-      'method': method,
-      'url': url,
-      'statusCode': statusCode,
-      'headers': headers,
-      'body': body,
-      'durationMs': durationMs,
-      'sizeBytes': sizeBytes,
-      'timestamp': timestamp.millisecondsSinceEpoch,
+      'id': response.id,
+      'method': response.method,
+      'url': response.url,
+      'statusCode': response.statusCode,
+      'headers': response.headers,
+      'body': response.body,
+      'durationMs': response.durationMs,
+      'sizeBytes': response.sizeBytes,
+      'isBinary': response.isBinary,
+      'contentType': response.contentType,
+      'timestamp': response.timestamp.millisecondsSinceEpoch,
       'assertionResults':
-          assertionResults.map((result) => result.toMap()).toList(),
-      'extractionResults': extractionResults
+          response.assertionResults.map((result) => result.toMap()).toList(),
+      'extractionResults': response.extractionResults
           .map((result) => result.toMap(includeSecrets: includeSecrets))
           .toList(),
     };
@@ -489,6 +534,8 @@ class ApiResponseRecord {
       body: (map['body'] as String?) ?? '',
       durationMs: (map['durationMs'] as int?) ?? 0,
       sizeBytes: (map['sizeBytes'] as int?) ?? 0,
+      isBinary: map['isBinary'] == true,
+      contentType: (map['contentType'] as String?) ?? '',
       timestamp: DateTime.fromMillisecondsSinceEpoch(
         (map['timestamp'] as int?) ?? DateTime.now().millisecondsSinceEpoch,
       ),
@@ -599,18 +646,44 @@ class ApiRequestItem {
   }
 
   ApiRequestItem sanitized() {
+    final safeFormFields = <String, String>{
+      for (final entry in body.formFields.entries)
+        entry.key: DataRedactor.isSensitiveName(entry.key)
+            ? DataRedactor.replacement
+            : DataRedactor.redactText(entry.value),
+    };
+    final safeRaw = switch (body.type) {
+      ApiRequestBodyType.rawJson => DataRedactor.redactJsonText(body.raw),
+      ApiRequestBodyType.rawText => DataRedactor.redactText(body.raw),
+      _ => body.raw,
+    };
     return copyWith(
+      url: DataRedactor.redactUrl(url),
+      queryParams: {
+        for (final entry in queryParams.entries)
+          entry.key: DataRedactor.isSensitiveName(entry.key)
+              ? DataRedactor.replacement
+              : DataRedactor.redactText(entry.value),
+      },
       headers: Map.fromEntries(
-        headers.entries
-            .where((entry) => !ApiRequest.isSensitiveHeader(entry.key)),
+        headers.entries.where(
+          (entry) => !DataRedactor.isSensitiveName(entry.key),
+        ),
       ),
       auth: auth.sanitized(),
+      body: body.copyWith(raw: safeRaw, formFields: safeFormFields),
       variables: variables.map((variable) => variable.sanitized()).toList(),
+      expectedResponseNote: DataRedactor.redactText(expectedResponseNote),
+      exampleResponse: DataRedactor.redactJsonText(exampleResponse),
     );
   }
 
   bool get hasSecrets {
-    return headers.keys.any(ApiRequest.isSensitiveHeader) ||
+    return headers.keys.any(DataRedactor.isSensitiveName) ||
+        queryParams.keys.any(DataRedactor.isSensitiveName) ||
+        body.formFields.keys.any(DataRedactor.isSensitiveName) ||
+        DataRedactor.redactUrl(url) != url ||
+        DataRedactor.redactText(body.raw) != body.raw ||
         auth.hasSecrets ||
         variables.any((variable) => variable.isSecret) ||
         extractionRules.any((rule) => rule.isSecret);
@@ -1163,12 +1236,12 @@ class ApiHistoryItem {
       requestId: requestId,
       requestName: requestName,
       method: method,
-      url: url,
+      url: DataRedactor.redactUrl(url),
       statusCode: statusCode,
       durationMs: durationMs,
       timestamp: timestamp,
       request: request.sanitized().copyWith(body: const ApiRequestBody()),
-      response: response,
+      response: response?.sanitized(),
     );
   }
 

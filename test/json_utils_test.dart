@@ -46,5 +46,23 @@ void main() {
       final pretty = JsonUtils.prettyPrint({'items': items});
       expect(pretty, contains('"items"'));
     });
+
+    test('rejects huge input before decoding', () {
+      final huge = '"${'x' * JsonUtils.maxInputBytes}"';
+      expect(() => JsonUtils.parseJson(huge), throwsA(isA<JsonFailure>()));
+    });
+
+    test('rejects deeply nested decoded structures', () {
+      var input = '0';
+      for (var index = 0; index < JsonUtils.maxDepth + 2; index++) {
+        input = '[$input]';
+      }
+      expect(() => JsonUtils.parseJson(input), throwsA(isA<JsonFailure>()));
+    });
+
+    test('rejects excessive node counts', () {
+      final input = '[${List.filled(JsonUtils.maxNodes + 1, '0').join(',')}]';
+      expect(() => JsonUtils.parseJson(input), throwsA(isA<JsonFailure>()));
+    });
   });
 }

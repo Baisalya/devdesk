@@ -3,6 +3,8 @@
 
 #include <flutter/dart_project.h>
 #include <flutter/flutter_view_controller.h>
+#include <flutter/method_channel.h>
+#include <flutter/standard_method_codec.h>
 
 #include <memory>
 
@@ -28,6 +30,19 @@ class FlutterWindow : public Win32Window {
 
   // The Flutter instance hosted by this window.
   std::unique_ptr<flutter::FlutterViewController> flutter_controller_;
+
+  // DPAPI-backed protected storage channel.
+  std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>>
+      secure_secret_channel_;
+
+  // Same-directory Windows ReplaceFileW bridge for safe external saves.
+  std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>>
+      atomic_file_channel_;
+
+  // Native close interception for unsaved document protection.
+  std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>>
+      window_lifecycle_channel_;
+  bool has_dirty_documents_ = false;
 };
 
 #endif  // RUNNER_FLUTTER_WINDOW_H_

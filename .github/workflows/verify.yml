@@ -1,0 +1,99 @@
+name: verify
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+      - codex/devdesk-release-remediation
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  android-web-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.9'
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: dart format --output=none --set-exit-if-changed .
+      - run: flutter analyze
+      - run: flutter test
+      - run: flutter test --coverage
+      - run: flutter pub outdated
+        continue-on-error: true
+      - run: dart pub deps
+      - run: flutter build apk --debug
+      - run: flutter build web
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage
+          path: coverage/lcov.info
+          if-no-files-found: ignore
+
+  windows-tests:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.9'
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: dart format --output=none --set-exit-if-changed .
+      - run: flutter analyze
+      - run: flutter test
+      - run: flutter build windows
+      - run: powershell -ExecutionPolicy Bypass -File tool/release/package_windows.ps1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-portable-unsigned-verification-only
+          path: dist/*.zip
+
+  android-release:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    environment: production-signing
+    timeout-minutes: 45
+    env:
+      DEVDESK_ANDROID_KEYSTORE_BASE64: ${{ secrets.DEVDESK_ANDROID_KEYSTORE_BASE64 }}
+      DEVDESK_ANDROID_STORE_PASSWORD: ${{ secrets.DEVDESK_ANDROID_STORE_PASSWORD }}
+      DEVDESK_ANDROID_KEY_ALIAS: ${{ secrets.DEVDESK_ANDROID_KEY_ALIAS }}
+      DEVDESK_ANDROID_KEY_PASSWORD: ${{ secrets.DEVDESK_ANDROID_KEY_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.9'
+          channel: stable
+          cache: true
+      - name: Materialize externally provisioned keystore
+        shell: bash
+        run: |
+          test -n "$DEVDESK_ANDROID_KEYSTORE_BASE64"
+          echo "$DEVDESK_ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/devdesk-upload.jks"
+          chmod 600 "$RUNNER_TEMP/devdesk-upload.jks"
+          echo "DEVDESK_ANDROID_STORE_FILE=$RUNNER_TEMP/devdesk-upload.jks" >> "$GITHUB_ENV"
+      - run: flutter pub get
+      - run: flutter test
+      - run: flutter build apk --release
+      - run: flutter build appbundle
+      - name: Hash artifacts
+        run: sha256sum build/app/outputs/flutter-apk/app-release.apk build/app/outputs/bundle/release/app-release.aab > android-release.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-release-candidate
+          path: |
+            build/app/outputs/flutter-apk/app-release.apk
+            build/app/outputs/bundle/release/app-release.aab
+            android-release.sha256

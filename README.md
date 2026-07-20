@@ -1,136 +1,86 @@
 # DevDesk
 
-DevDesk is a **pure Flutter** developer toolbox designed to work completely offline. It bundles a suite of everyday utilities—such as a Markdown editor, JSON viewer/formatter, mini‑Postman API tester, JWT decoder, regex tester, Base64 encoder/decoder, timestamp converter, UUID generator, diff checker, and snippets/notes storage—into one cohesive, beginner‑friendly application. There is **no backend** or cloud dependency; all data is stored locally on device.
+DevDesk is an **offline-first Flutter developer toolbox** for Android, Windows, and an explicitly limited web build. Most tools process content locally. Network access occurs only when the user starts an API request or a supported GitHub fetch; DevDesk does not include analytics, telemetry, accounts, cloud sync, or a backend.
 
-## Features
+## Release scope
 
-The app includes the following tools:
+The release scope includes:
 
-| Tool | Description |
-| --- | --- |
-| Dashboard | Lists all available tools, shows favorites and recently used items, and provides a search bar for quick access. |
-| Markdown Editor | Create and edit markdown files with a live preview. Supports headings, bold, italics, code blocks, links, lists, checklists and tables. Files are saved locally and can be exported. |
-| README Generator | Build a clean README.md by filling out a form with your project’s name, description, features, install instructions, usage, screenshots note and license. Allows editing after generation. |
-| JSON Viewer & Formatter | Paste JSON to validate, pretty‑print, minify and explore via a tree view. Displays helpful error messages with line information on invalid input. |
-| API Tester | A mini‑Postman built into Flutter. Supports GET, POST, PUT, PATCH and DELETE. Allows editing headers, query parameters and request body. Shows status code, response time, headers and body with pretty‑printed JSON. Supports saving history, duplicating requests, presets, environments, and code snippet generation. |
-| JWT Decoder | Decodes the header and payload of a JWT locally, highlighting expiry time and whether the token is expired. Does not verify the signature or send the token anywhere. |
-| Regex Tester | Tests a regular expression against sample text, shows matches and counts, and reports errors. Supports common flags. |
-| Base64 Tool | Encodes and decodes Base64 strings and provides clear error messages for invalid input. |
-| URL Encoder/Decoder | Encodes text for safe use in URLs or decodes encoded URL text back to human‑readable form. |
-| Timestamp Converter | Converts Unix timestamps (seconds or milliseconds) to local and UTC date/times, and vice versa. |
-| UUID Generator | Generates version‑4 UUIDs one at a time or in batches. |
-| Diff Checker | Compares two blocks of text and highlights differences. Useful for JSON or arbitrary text comparison. |
-| Snippets/Notes | Stores developer notes and command snippets with tags. Supports search, editing, deletion and local export/import. |
-| Settings | Toggles light/dark/system theme, clears local data with confirmation, exports/imports data backups, and displays an About page. |
+- Markdown editing and local Markdown vault
+- README generation
+- JSON validation, formatting, minification, and accessible tree view
+- API workspaces with environments, collections, assertions, bounded streamed responses, cancellation, history, and redacted exports
+- Local JWT decoding without signature verification
+- Regex, Base64, URL, timestamp, and UUID utilities
+- Text diff with bounded worker execution and redacted export
+- Local snippets and notes
+- Versioned backup/restore with pre-validation, staging, persistent rollback journal, and secret exclusion
+- User-selected external Markdown, JSON, text/code, backup, and API collection files
+
+Features not listed above must not be advertised as production-ready. In particular, DevDesk does not provide Git working-tree integration, arbitrary repository cloning, cloud synchronization, remote AI, or certificate-bypass behavior.
+
+## Security and privacy boundaries
+
+- API secrets are removed from ordinary Hive workspace records. Android uses Android Keystore-backed encryption and Windows uses DPAPI for the secret overlay.
+- Browser storage cannot provide an equivalent platform secret boundary; web secrets are session-only and are not persisted.
+- Backups and portable exports exclude protected secrets and conservatively redact secret-like values.
+- Clipboard actions for API data, JWT claims, JSON, snippets, Markdown, vault content, diffs, and backups pass through a common redaction boundary.
+- Remote Markdown images are not loaded. This avoids unrequested network traffic and tracking pixels.
+- Release Android builds fail when production signing is not configured. No debug key is accepted for release.
+
+See `PRIVACY.md`, `SECURITY.md`, and `docs/release/PLATFORM_LIMITATIONS.md` for the complete boundaries.
+
+## External files
+
+Android uses the system document picker and treats selected documents as read copies; edited content is saved through a user-selected destination. Windows can overwrite a selected local file only after a same-directory temporary write, flush/close, identity revalidation, and native atomic replacement. Network paths and reparse/symbolic-link paths are not overwritten in place.
+
+Text decoding supports UTF-8, UTF-8 BOM, UTF-16 LE/BE BOM, and preserves detected line endings on overwrite. Binary, malformed, oversized, missing, renamed, locked, or read-only files fail with actionable errors while preserving the original.
+
+## Build prerequisites
+
+- Flutter **3.41.9 stable** (framework revision recorded in `.metadata`)
+- Dart supplied by that Flutter SDK
+- Android SDK/JDK 17 for Android
+- Visual Studio with Desktop development with C++ for Windows
+
+```bash
+flutter pub get
+dart format --output=none --set-exit-if-changed .
+flutter analyze
+flutter test
+flutter test --coverage
+flutter build apk --debug
+flutter build web
+```
+
+Windows verification must run on Windows:
+
+```powershell
+flutter pub get
+dart format --output=none --set-exit-if-changed .
+flutter analyze
+flutter test
+flutter build windows
+```
+
+Release Android APK/AAB builds require external signing configuration described in `docs/release/ANDROID_SIGNING.md`. A build failure without those credentials is intentional.
 
 ## Project structure
 
-DevDesk follows a feature‑based structure with clean separation between presentation, provider (state), data storage and utilities. The top‑level `lib/` directory is organised as follows:
+- `lib/app`: routing, theme, and command registry
+- `lib/core`: storage, security, bounded networking, archive policy, platform bridges, file safety, and shared widgets
+- `lib/features`: feature-specific UI, state, models, and services
+- `test`: unit, widget, fault-injection, malicious-input, and lifecycle regression tests
+- `docs/senior_audit`: original senior audit reports
+- `docs/release`: remediation evidence and release runbooks
+- `tool/release`: source/Windows packaging and third-party notice tooling
 
-```
-lib/
-  main.dart            # Entry point and MaterialApp setup
-  app/
-    app.dart           # Root widget
-    router.dart        # Simple router for feature pages
-    theme/
-      light_theme.dart
-      dark_theme.dart
-  core/
-    constants/         # Hard‑coded lists (e.g. tool metadata)
-    errors/            # Failure classes
-    storage/           # Local storage helpers (Hive wrappers)
-    utils/             # Utility functions (JSON, regex, Base64, URL, timestamp, UUID, diff, JWT)
-    widgets/           # Reusable UI components
-  features/
-    dashboard/
-      presentation/     # Dashboard UI and widgets
-      provider/         # Dashboard state management
-    markdown/
-      presentation/
-      provider/
-    readme_generator/
-      presentation/
-      provider/
-    json_tools/
-      presentation/
-      provider/
-    api_tester/
-      presentation/
-      provider/
-      models/
-    jwt_decoder/
-      presentation/
-      provider/
-    regex_tester/
-      presentation/
-      provider/
-    base64_tool/
-      presentation/
-      provider/
-    url_tool/
-      presentation/
-      provider/
-    timestamp_tool/
-      presentation/
-      provider/
-    uuid_tool/
-      presentation/
-      provider/
-    diff_checker/
-      presentation/
-      provider/
-    snippets/
-      presentation/
-      provider/
-    settings/
-      presentation/
-      provider/
-```
+## Release status
 
-## Running the app
+The remediation branch contains production code and regression tests, but a public release remains blocked until the final Flutter test/build matrix runs on supported hosts and real Android/Windows signing credentials are supplied. See `docs/release/VERIFICATION_REPORT.md`.
 
-To run DevDesk locally:
+## License and support
 
-1. Install [Flutter](https://flutter.dev/docs/get-started/install) and ensure your environment is set up with `flutter doctor`.
-2. Clone this repository and navigate into the project directory:
+DevDesk source is licensed under the MIT License; see `LICENSE`. Third-party packages retain their own licenses; generate the exact resolved notice bundle with `dart run tool/release/generate_third_party_notices.dart` after dependency resolution.
 
-   ```bash
-   git clone <repo-url>
-   cd devdesk
-   ```
-
-3. Fetch dependencies and generate Hive adapters:
-
-   ```bash
-   flutter pub get
-   ```
-
-4. Run the app on an emulator or device:
-
-   ```bash
-   flutter run
-   ```
-
-5. Execute tests to verify functionality:
-
-   ```bash
-   flutter test
-   ```
-
-## Contributing
-
-Contributions, bug reports and feature requests are welcome! Feel free to open an issue or submit a pull request. When contributing code, please ensure that you follow the project structure, keep business logic outside of UI widgets, add tests for your changes, and run `flutter analyze` and `dart format` before submitting.
-
-## License
-
-This project is licensed under the MIT License. See [LICENSE](LICENSE) for more information.
-## External files
-
-DevDesk can open user-selected developer files without broad storage permission. Supported files include Markdown/README files, JSON, text and common code files, DevDesk backup JSON, and DevDesk API collection JSON.
-
-- Android uses the system file picker flow and treats selected files as safe read copies. Use Save As/export copy for edited external content.
-- Windows uses normal open/save dialogs and can overwrite the original file after confirmation when the selected path is writable.
-- `.env` files show a secrets warning before opening. File contents, tokens, request bodies, and authorization headers are not logged or uploaded.
-- Backup imports show a preview before data is merged or replaced.
-- API collection imports warn when sensitive headers are present and default to importing without secrets.
+Security reports should follow `SECURITY.md`. General support is handled through the repository issue tracker as described in `SUPPORT.md`.

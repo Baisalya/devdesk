@@ -4,6 +4,7 @@ import 'package:http/testing.dart';
 
 import 'package:devdesk/core/errors/failure.dart';
 import 'package:devdesk/features/api_tester/models/api_request.dart';
+import 'package:devdesk/features/api_tester/models/api_workspace_models.dart';
 import 'package:devdesk/features/api_tester/provider/api_provider.dart';
 
 void main() {
@@ -79,5 +80,73 @@ void main() {
       ),
       throwsA(isA<ApiFailure>()),
     );
+  });
+
+  test('quick requests use the shared prepared-request representation', () {
+    final prepared = prepareApiRequest(
+      request: ApiRequest(
+        method: 'POST',
+        url: 'https://api.example.com/form',
+        headers: const {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: 'name=DevDesk&mode=offline',
+      ),
+      timeout: const Duration(seconds: 9),
+    );
+
+    expect(prepared.bodyType, ApiRequestBodyType.formUrlEncoded);
+    expect(prepared.formFields, {'name': 'DevDesk', 'mode': 'offline'});
+    expect(prepared.timeout, const Duration(seconds: 9));
+  });
+
+  test('quick multipart requests reject manual boundaries', () {
+    expect(
+      () => prepareApiRequest(
+        request: ApiRequest(
+          method: 'POST',
+          url: 'https://api.example.com/upload',
+          headers: const {'Content-Type': 'multipart/form-data; boundary=x'},
+          body: '--x',
+        ),
+        timeout: const Duration(seconds: 5),
+      ),
+      throwsA(
+        isA<ApiFailure>().having(
+          (failure) => failure.code,
+          'code',
+          'DD-API-BODY-MULTIPART',
+        ),
+      ),
+    );
+  });
+
+  test('quick invalid JSON is rejected before network send', () async {
+    var sent = false;
+    final client = MockClient((request) async {
+      sent = true;
+      return http.Response('', 200);
+    });
+
+    await expectLater(
+      executeApiRequest(
+        request: ApiRequest(
+          method: 'POST',
+          url: 'https://api.example.com',
+          headers: const {'Content-Type': 'application/json'},
+          body: '{bad-json',
+        ),
+        client: client,
+        timeout: const Duration(seconds: 5),
+      ),
+      throwsA(
+        isA<ApiFailure>().having(
+          (failure) => failure.code,
+          'code',
+          'DD-API-BODY-JSON',
+        ),
+      ),
+    );
+    expect(sent, isFalse);
   });
 }

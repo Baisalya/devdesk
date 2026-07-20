@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/design/app_breakpoints.dart';
@@ -10,6 +9,8 @@ import '../../../core/design/app_spacing.dart';
 import '../../../core/design/app_typography.dart';
 import '../../../core/files/external_file.dart';
 import '../../../core/files/external_file_service.dart';
+import '../../../core/security/data_redactor.dart';
+import '../../../core/security/safe_clipboard.dart';
 import '../../../core/errors/failure.dart';
 import '../../../core/utils/json_utils.dart';
 import '../../../core/widgets/app_badge.dart';
@@ -83,7 +84,6 @@ class _ApiPageState extends ConsumerState<ApiPage> {
     final lastRequest = ref.watch(lastApiRequestProvider);
     final loading = ref.watch(apiLoadingProvider);
     final error = ref.watch(apiErrorProvider);
-    final saveSensitiveHeaders = ref.watch(saveSensitiveHeadersProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -115,12 +115,11 @@ class _ApiPageState extends ConsumerState<ApiPage> {
             bodyController: _bodyController,
             loading: loading,
             error: error,
-            saveSensitiveHeaders: saveSensitiveHeaders,
             onMethodChanged: (value) {
               ref.read(methodProvider.notifier).state = value;
             },
             onSend: _send,
-            onSetSaveSensitiveHeaders: _setSaveSensitiveHeaders,
+            onCancel: () => cancelApiRequest(ref),
           );
           final responsePanel = _ResponseSection(
             response: response,
@@ -166,48 +165,20 @@ class _ApiPageState extends ConsumerState<ApiPage> {
     );
   }
 
-  Future<void> _setSaveSensitiveHeaders(bool value) async {
-    if (value) {
-      final confirm = await showDialog<bool>(
-        context: context,
-        builder: (context) {
-          return AlertDialog(
-            title: const Text('Save sensitive headers?'),
-            content: const Text(
-              'Authorization, bearer tokens, API keys and similar headers may '
-              'contain secrets. Save them only on a device you trust.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('Cancel'),
-              ),
-              ElevatedButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                child: const Text('Save headers'),
-              ),
-            ],
-          );
-        },
-      );
-      if (confirm != true) return;
-    }
-    await ref.read(saveSensitiveHeadersProvider.notifier).setValue(value);
-  }
-
   Future<void> _send() async {
     final hadSensitiveHeaders =
         ref.read(headersProvider.notifier).toMap().keys.any(
               ApiRequest.isSensitiveHeader,
             );
-    final saveSensitive = ref.read(saveSensitiveHeadersProvider);
     try {
       await sendRequest(ref);
       ref.read(apiErrorProvider.notifier).state = null;
-      if (hadSensitiveHeaders && !saveSensitive && mounted) {
+      if (hadSensitiveHeaders && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Sensitive headers were not saved to history.'),
+            content: Text(
+              'Sensitive headers and request data were redacted before history was saved.',
+            ),
           ),
         );
       }
@@ -218,7 +189,7 @@ class _ApiPageState extends ConsumerState<ApiPage> {
         SnackBar(content: Text(e.message)),
       );
     } catch (e) {
-      final message = e.toString();
+      final message = DataRedactor.safeError(e);
       ref.read(apiErrorProvider.notifier).state = message;
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -240,75 +211,73 @@ class _ApiPageState extends ConsumerState<ApiPage> {
     } on ExternalFileException catch (e) {
       _showSnack(e.message);
     } catch (e) {
-      _showSnack('Failed to import collection: $e');
+      _showSnack(
+        'Failed to import collection: ${DataRedactor.safeError(e)}',
+      );
     }
   }
 
   Future<void> _importCollectionFromText(
-      String content, String sourceName) async {
+    String content,
+    String sourceName,
+  ) async {
     try {
       final document = ApiCollectionUtils.decodeCollectionText(content);
       final preview = ApiCollectionUtils.preview(document);
-      final includeSecrets =
-          await _chooseCollectionImportMode(sourceName, preview);
-      if (includeSecrets == null) return;
+      final confirmed = await _confirmCollectionImport(sourceName, preview);
+      if (!confirmed) return;
       final requests = ApiCollectionUtils.importRequests(
         document,
-        includeSecrets: includeSecrets,
+        includeSecrets: false,
       );
       for (final request in requests) {
-        await saveRequestToHistory(
-          request,
-          saveSensitiveHeaders: includeSecrets,
-        );
+        await saveRequestToHistory(request);
       }
       ref.invalidate(apiHistoryProvider);
       if (requests.isNotEmpty) {
         _loadRequest(requests.first);
       }
-      _showSnack('Imported ${requests.length} API request(s).');
+      final suffix =
+          preview.hasSensitiveHeaders ? ' Sensitive values were removed.' : '';
+      _showSnack('Imported ${requests.length} API request(s).$suffix');
     } on FormatException catch (e) {
       _showSnack(e.message);
     } catch (e) {
-      _showSnack('Failed to import collection: $e');
+      _showSnack(
+        'Failed to import collection: ${DataRedactor.safeError(e)}',
+      );
     }
   }
 
-  Future<bool?> _chooseCollectionImportMode(
+  Future<bool> _confirmCollectionImport(
     String sourceName,
     ApiCollectionPreview preview,
-  ) {
-    return showDialog<bool>(
+  ) async {
+    final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) {
         final content = preview.hasSensitiveHeaders
-            ? 'Import ${preview.requestCount} request(s) from "$sourceName"? Sensitive headers were found.'
+            ? 'Import ${preview.requestCount} request(s) from "$sourceName"? '
+                'Sensitive headers, URL values, and bodies will be removed '
+                'before the requests enter history.'
             : 'Import ${preview.requestCount} request(s) from "$sourceName"?';
         return AlertDialog(
           title: const Text('Import API collection'),
           content: Text(content),
           actions: [
             TextButton(
-              onPressed: () => Navigator.of(context).pop(),
+              onPressed: () => Navigator.of(context).pop(false),
               child: const Text('Cancel'),
             ),
-            if (preview.hasSensitiveHeaders)
-              OutlinedButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('Import without secrets'),
-              ),
             ElevatedButton(
-              onPressed: () => Navigator.of(context).pop(
-                preview.hasSensitiveHeaders ? true : false,
-              ),
-              child: Text(
-                preview.hasSensitiveHeaders ? 'Import with secrets' : 'Import',
-              ),
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Import safely'),
             ),
           ],
         );
       },
     );
+    return confirmed ?? false;
   }
 
   Future<void> _exportCollection() async {
@@ -318,32 +287,7 @@ class _ApiPageState extends ConsumerState<ApiPage> {
       _showSnack('No API history to export.');
       return;
     }
-    final includeSecrets = await showDialog<bool>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Export API collection'),
-          content: const Text(
-            'Exports saved requests. Sensitive headers are excluded by default.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-            OutlinedButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Exclude secrets'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Include secrets'),
-            ),
-          ],
-        );
-      },
-    );
-    if (includeSecrets == null) return;
+    const includeSecrets = false;
     final document = ApiCollectionUtils.exportCollection(
       history.map((entry) => entry.request),
       includeSecrets: includeSecrets,
@@ -378,7 +322,8 @@ class _ApiPageState extends ConsumerState<ApiPage> {
         final history = ref.watch(apiHistoryProvider);
         return history.when(
           loading: () => const AppLoadingState(label: 'Loading history...'),
-          error: (err, stack) => AppErrorState(message: err.toString()),
+          error: (err, stack) =>
+              AppErrorState(message: DataRedactor.safeError(err)),
           data: (items) => _HistorySheet(
             items: items,
             onDuplicate: (request) {
@@ -455,10 +400,9 @@ class _RequestPanel extends StatelessWidget {
   final TextEditingController bodyController;
   final bool loading;
   final String? error;
-  final bool saveSensitiveHeaders;
   final ValueChanged<String> onMethodChanged;
   final VoidCallback onSend;
-  final ValueChanged<bool> onSetSaveSensitiveHeaders;
+  final VoidCallback onCancel;
 
   const _RequestPanel({
     required this.method,
@@ -466,10 +410,9 @@ class _RequestPanel extends StatelessWidget {
     required this.bodyController,
     required this.loading,
     required this.error,
-    required this.saveSensitiveHeaders,
     required this.onMethodChanged,
     required this.onSend,
-    required this.onSetSaveSensitiveHeaders,
+    required this.onCancel,
   });
 
   @override
@@ -511,15 +454,9 @@ class _RequestPanel extends StatelessWidget {
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton.icon(
-                    onPressed: loading ? null : onSend,
-                    icon: loading
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.send),
-                    label: Text(loading ? 'Sending...' : 'Send'),
+                    onPressed: loading ? onCancel : onSend,
+                    icon: Icon(loading ? Icons.stop : Icons.send),
+                    label: Text(loading ? 'Cancel request' : 'Send'),
                   ),
                 ),
                 if (error != null) ...[
@@ -592,18 +529,15 @@ class _RequestPanel extends StatelessWidget {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              AppCard(
+                              const AppCard(
                                 filled: false,
-                                child: SwitchListTile(
+                                child: ListTile(
                                   contentPadding: EdgeInsets.zero,
-                                  title: const Text(
-                                    'Save auth/sensitive headers in history',
+                                  leading: Icon(Icons.shield_outlined),
+                                  title: Text('Protected request history'),
+                                  subtitle: Text(
+                                    'Sensitive headers, URL query values, and request bodies are always redacted before history is saved.',
                                   ),
-                                  subtitle: const Text(
-                                    'Off by default. Authorization, token, API key and secret headers are stripped from saved history.',
-                                  ),
-                                  value: saveSensitiveHeaders,
-                                  onChanged: onSetSaveSensitiveHeaders,
                                 ),
                               ),
                               const SizedBox(height: AppSpacing.md),
@@ -1363,7 +1297,10 @@ class _SnippetTile extends StatelessWidget {
                     icon: const Icon(Icons.copy),
                     tooltip: 'Copy snippet',
                     onPressed: () async {
-                      await Clipboard.setData(ClipboardData(text: snippet));
+                      await SafeClipboard.copy(
+                        snippet,
+                        forceRedaction: true,
+                      );
                       if (!context.mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(content: Text('$title snippet copied')),

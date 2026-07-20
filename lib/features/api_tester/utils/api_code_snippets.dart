@@ -4,6 +4,7 @@ import '../models/api_request.dart';
 
 class ApiCodeSnippets {
   static String curl(ApiRequest request) {
+    request = request.sanitized();
     final buffer = StringBuffer('curl -X ${request.method.toUpperCase()}');
     for (final entry in request.headers.entries) {
       buffer.write(' -H ${_shellQuote('${entry.key}: ${entry.value}')}');
@@ -16,6 +17,7 @@ class ApiCodeSnippets {
   }
 
   static String dartHttp(ApiRequest request) {
+    request = request.sanitized();
     final method = request.method.toUpperCase();
     final buffer = StringBuffer()
       ..writeln("import 'package:http/http.dart' as http;")
@@ -45,6 +47,7 @@ class ApiCodeSnippets {
   }
 
   static String javascriptFetch(ApiRequest request) {
+    request = request.sanitized();
     final options = <String, dynamic>{
       'method': request.method.toUpperCase(),
       if (request.headers.isNotEmpty) 'headers': request.headers,

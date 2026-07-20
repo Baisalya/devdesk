@@ -747,6 +747,7 @@ class ApiWorkspaceImportExport {
   }
 
   static String documentationMarkdown(ApiWorkspace workspace) {
+    workspace = workspace.sanitized();
     final buffer = StringBuffer()
       ..writeln('# ${workspace.name}')
       ..writeln()

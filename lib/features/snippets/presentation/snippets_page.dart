@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/design/app_breakpoints.dart';
 import '../../../core/design/app_colors.dart';
 import '../../../core/design/app_spacing.dart';
 import '../../../core/design/app_typography.dart';
+import '../../../core/security/safe_clipboard.dart';
 import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/app_empty_state.dart';
 import '../../../core/widgets/app_error_state.dart';
@@ -89,10 +89,14 @@ class SnippetsPage extends ConsumerWidget {
   }
 
   Future<void> _copySnippet(BuildContext context, Snippet snippet) async {
-    await Clipboard.setData(ClipboardData(text: snippet.content));
+    final redacted = await SafeClipboard.copy(snippet.content);
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Snippet copied')),
+      SnackBar(
+        content: Text(redacted
+            ? 'Snippet copied with secrets redacted'
+            : 'Snippet copied'),
+      ),
     );
   }
 

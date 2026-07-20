@@ -1,6 +1,9 @@
 import 'dart:io';
+
 import 'package:archive/archive.dart';
 import 'package:path/path.dart' as p;
+
+import '../../../core/archive/archive_policy.dart';
 
 class FolderDiffEntry {
   final String path;
@@ -17,6 +20,10 @@ class FolderDiffEntry {
 enum FileStatus { added, removed, changed, unchanged }
 
 class FolderDiffService {
+  static const int maxEntries = 10000;
+  static const int maxComparableFileBytes = 5 * 1024 * 1024;
+  static const int maxComparableTotalBytes = 100 * 1024 * 1024;
+
   static const Set<String> defaultIgnores = {
     '.git',
     'build',
@@ -40,7 +47,13 @@ class FolderDiffService {
     final filesB = _listAllFiles(dirB, ignores);
 
     final allPaths = {...filesA.keys, ...filesB.keys}.toList()..sort();
+    if (allPaths.length > maxEntries) {
+      throw const FileSystemException(
+        'Folder comparison contains too many entries.',
+      );
+    }
     final result = <FolderDiffEntry>[];
+    var comparedBytes = 0;
 
     for (final path in allPaths) {
       final inA = filesA.containsKey(path);
@@ -61,8 +74,25 @@ class FolderDiffService {
       } else {
         // Both exist, compare content for files
         if (filesA[path]!.statSync().type == FileSystemEntityType.file) {
-          final contentA = (filesA[path] as File).readAsBytesSync();
-          final contentB = (filesB[path] as File).readAsBytesSync();
+          final fileA = filesA[path] as File;
+          final fileB = filesB[path] as File;
+          final sizeA = fileA.lengthSync();
+          final sizeB = fileB.lengthSync();
+          if (sizeA > maxComparableFileBytes ||
+              sizeB > maxComparableFileBytes) {
+            throw FileSystemException(
+              'A file exceeds the safe folder comparison limit.',
+              path,
+            );
+          }
+          comparedBytes += sizeA + sizeB;
+          if (comparedBytes > maxComparableTotalBytes) {
+            throw const FileSystemException(
+              'Folder comparison exceeds the safe total byte limit.',
+            );
+          }
+          final contentA = fileA.readAsBytesSync();
+          final contentB = fileB.readAsBytesSync();
           final changed = !_bytesEqual(contentA, contentB);
           result.add(FolderDiffEntry(
               path: path,
@@ -83,13 +113,19 @@ class FolderDiffService {
     List<int> zipBytesA,
     List<int> zipBytesB,
   ) {
-    final archiveA = ZipDecoder().decodeBytes(zipBytesA);
-    final archiveB = ZipDecoder().decodeBytes(zipBytesB);
+    ArchivePolicy.inspect(zipBytesA);
+    ArchivePolicy.inspect(zipBytesB);
+    final archiveA = ZipDecoder().decodeBytes(zipBytesA, verify: true);
+    final archiveB = ZipDecoder().decodeBytes(zipBytesB, verify: true);
 
     final filesA = {for (var file in archiveA) file.name: file};
     final filesB = {for (var file in archiveB) file.name: file};
 
     final allPaths = {...filesA.keys, ...filesB.keys}.toList()..sort();
+    if (allPaths.length > maxEntries) {
+      throw const ArchivePolicyException(
+          'ZIP comparison contains too many entries.');
+    }
     final result = <FolderDiffEntry>[];
 
     for (final path in allPaths) {
@@ -99,26 +135,29 @@ class FolderDiffService {
       if (inA && !inB) {
         result.add(FolderDiffEntry(
             path: path,
-            isDirectory: filesA[path]!.content == null,
+            isDirectory: !filesA[path]!.isFile,
             status: FileStatus.removed));
       } else if (!inA && inB) {
         result.add(FolderDiffEntry(
             path: path,
-            isDirectory: filesB[path]!.content == null,
+            isDirectory: !filesB[path]!.isFile,
             status: FileStatus.added));
       } else {
         final fileA = filesA[path]!;
         final fileB = filesB[path]!;
-        if (fileA.content != null && fileB.content != null) {
-          final changed = !_bytesEqual(
-              fileA.content as List<int>, fileB.content as List<int>);
+        if (fileA.isFile && fileB.isFile) {
+          final changed = !_bytesEqual(fileA.content, fileB.content);
           result.add(FolderDiffEntry(
               path: path,
               isDirectory: false,
               status: changed ? FileStatus.changed : FileStatus.unchanged));
         } else {
+          final bothDirectories = !fileA.isFile && !fileB.isFile;
           result.add(FolderDiffEntry(
-              path: path, isDirectory: true, status: FileStatus.unchanged));
+              path: path,
+              isDirectory: bothDirectories,
+              status:
+                  bothDirectories ? FileStatus.unchanged : FileStatus.changed));
         }
       }
     }
@@ -131,9 +170,14 @@ class FolderDiffService {
     final result = <String, FileSystemEntity>{};
     final rootPath = dir.path;
 
-    for (final entity in dir.listSync(recursive: true)) {
+    for (final entity in dir.listSync(recursive: true, followLinks: false)) {
       final relativePath = p.relative(entity.path, from: rootPath);
       if (_shouldIgnore(relativePath, ignores)) continue;
+      if (result.length >= maxEntries) {
+        throw const FileSystemException(
+          'Folder comparison contains too many entries.',
+        );
+      }
       result[relativePath] = entity;
     }
     return result;

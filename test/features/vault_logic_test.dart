@@ -226,7 +226,7 @@ tags:
     test('rejects unsafe vault ZIP paths', () {
       final archive = Archive()
         ..addFile(ArchiveFile('../evil.md', 4, utf8.encode('nope')));
-      final bytes = ZipEncoder().encode(archive)!;
+      final bytes = ZipEncoder().encode(archive);
 
       expect(
         () => VaultExportService.importZipBytes(bytes),
