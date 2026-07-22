@@ -31,7 +31,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('1. Who this policy covers'), findsOneWidget);
 
-    await tester.tap(find.byTooltip('Back to acceptance'));
+    await tester.tap(find.byKey(const Key('privacy-policy-back')));
     await tester.pumpAndSettle();
     final checkbox = find.byKey(const Key('privacy-acceptance-checkbox'));
     await tester.ensureVisible(checkbox);

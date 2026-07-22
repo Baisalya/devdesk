@@ -18,73 +18,77 @@ class PrivacyPolicyPage extends StatelessWidget {
 
 class PrivacyPolicyView extends StatelessWidget {
   final Widget? footer;
+  final bool selectable;
 
-  const PrivacyPolicyView({super.key, this.footer});
+  const PrivacyPolicyView({
+    super.key,
+    this.footer,
+    this.selectable = true,
+  });
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
 
-    return SelectionArea(
-      child: ListView(
-        key: const Key('privacy-policy-scroll-view'),
-        padding: AppSpacing.page(context),
-        children: [
-          Align(
-            alignment: Alignment.topCenter,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 840),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  AppCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(
-                          Icons.privacy_tip_outlined,
-                          size: 34,
-                          color: colors.primary,
+    final content = ListView(
+      key: const Key('privacy-policy-scroll-view'),
+      padding: AppSpacing.page(context),
+      children: [
+        Align(
+          alignment: Alignment.topCenter,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 840),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                AppCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        Icons.privacy_tip_outlined,
+                        size: 34,
+                        color: colors.primary,
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      Text(
+                        'DevDesk Privacy Policy',
+                        style: textTheme.headlineSmall,
+                      ),
+                      const SizedBox(height: AppSpacing.xs),
+                      Text(
+                        'Effective ${DevDeskPrivacyPolicy.effectiveDate}  •  '
+                        'Version ${DevDeskPrivacyPolicy.version}',
+                        style: textTheme.bodyMedium?.copyWith(
+                          color: colors.onSurfaceVariant,
                         ),
-                        const SizedBox(height: AppSpacing.sm),
-                        Text(
-                          'DevDesk Privacy Policy',
-                          style: textTheme.headlineSmall,
-                        ),
-                        const SizedBox(height: AppSpacing.xs),
-                        Text(
-                          'Effective ${DevDeskPrivacyPolicy.effectiveDate}  •  '
-                          'Version ${DevDeskPrivacyPolicy.version}',
-                          style: textTheme.bodyMedium?.copyWith(
-                            color: colors.onSurfaceVariant,
-                          ),
-                        ),
-                        const SizedBox(height: AppSpacing.sm),
-                        Text(
-                          'Offline-first by design, with clear disclosure for every user-initiated network action.',
-                          style: textTheme.bodyLarge,
-                        ),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      Text(
+                        'Offline-first by design, with clear disclosure for every user-initiated network action.',
+                        style: textTheme.bodyLarge,
+                      ),
+                    ],
                   ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                for (final section in DevDeskPrivacyPolicy.sections) ...[
+                  _PolicySection(section: section),
                   const SizedBox(height: AppSpacing.md),
-                  for (final section in DevDeskPrivacyPolicy.sections) ...[
-                    _PolicySection(section: section),
-                    const SizedBox(height: AppSpacing.md),
-                  ],
-                  if (footer != null) ...[
-                    const SizedBox(height: AppSpacing.xs),
-                    footer!,
-                    const SizedBox(height: AppSpacing.md),
-                  ],
                 ],
-              ),
+                if (footer != null) ...[
+                  const SizedBox(height: AppSpacing.xs),
+                  footer!,
+                  const SizedBox(height: AppSpacing.md),
+                ],
+              ],
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
+    return selectable ? SelectionArea(child: content) : content;
   }
 }
 

@@ -51,5 +51,12 @@ void main() {
     final app = tester.widget<MaterialApp>(find.byType(MaterialApp));
     expect(app.shortcuts, isNull);
     expect(app.actions, isNull);
+
+    await tester.tap(find.byKey(const Key('read-full-privacy-policy')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('1. Who this policy covers'), findsOneWidget);
+    expect(find.byKey(const Key('privacy-policy-back')), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 }

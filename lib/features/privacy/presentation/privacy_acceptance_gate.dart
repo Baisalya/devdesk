@@ -39,14 +39,22 @@ class _PrivacyAcceptanceGateState extends ConsumerState<PrivacyAcceptanceGate> {
       child: _showFullPolicy
           ? Scaffold(
               appBar: AppBar(
-                leading: IconButton(
-                  tooltip: 'Back to acceptance',
-                  onPressed: () => setState(() => _showFullPolicy = false),
-                  icon: const Icon(Icons.arrow_back),
+                leading: Semantics(
+                  label: 'Back to acceptance',
+                  button: true,
+                  excludeSemantics: true,
+                  child: IconButton(
+                    key: const Key('privacy-policy-back'),
+                    onPressed: () => setState(() => _showFullPolicy = false),
+                    icon: const Icon(Icons.arrow_back),
+                  ),
                 ),
                 title: const Text('Privacy Policy'),
               ),
-              body: const PrivacyPolicyView(),
+              // MaterialApp.builder sits outside the root Navigator overlay.
+              // Selection remains available on the Settings policy page, which
+              // is routed inside that overlay.
+              body: const PrivacyPolicyView(selectable: false),
             )
           : _buildGate(context, acceptance),
     );
