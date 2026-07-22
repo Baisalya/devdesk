@@ -110,7 +110,25 @@ void main() {
   testWidgets('Settings grouped sections render', (tester) async {
     await _pumpAtSize(tester, const Size(800, 1280), const SettingsPage());
     expect(find.text('Appearance'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Data backup'),
+      500,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('Data backup'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Plans'),
+      500,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('Plans'), findsOneWidget);
+    expect(find.text('Free plan'), findsOneWidget);
+    expect(find.text('Purchases disabled'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Privacy & security'),
+      500,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('Privacy & security'), findsOneWidget);
   });
 

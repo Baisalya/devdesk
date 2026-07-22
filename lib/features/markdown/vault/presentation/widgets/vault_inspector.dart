@@ -152,7 +152,11 @@ class _LinksViewState extends State<_LinksView> {
           for (final link in widget.brokenLinks)
             ListTile(
               dense: true,
-              leading: const Icon(Icons.link_off, size: 16, color: Colors.red),
+              leading: Icon(
+                Icons.link_off,
+                size: 16,
+                color: Theme.of(context).colorScheme.error,
+              ),
               title: Text(link),
             ),
         const Divider(),

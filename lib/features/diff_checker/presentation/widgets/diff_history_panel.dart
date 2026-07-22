@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/design/app_colors.dart';
 import '../../../../core/design/app_spacing.dart';
 import '../../../../core/widgets/app_card.dart';
 import '../../../../core/widgets/app_empty_state.dart';
@@ -55,14 +56,16 @@ class DiffHistoryPanel extends ConsumerWidget {
                   if (session.summary != null) ...[
                     _SummaryBadge(
                       label: '+${session.summary!.added}',
-                      color: Colors.green.withValues(alpha: 0.1),
-                      textColor: Colors.green,
+                      color:
+                          AppColors.diffAdded(context).withValues(alpha: 0.1),
+                      textColor: AppColors.diffAdded(context),
                     ),
                     const SizedBox(width: AppSpacing.xs),
                     _SummaryBadge(
                       label: '-${session.summary!.removed}',
-                      color: Colors.red.withValues(alpha: 0.1),
-                      textColor: Colors.red,
+                      color:
+                          AppColors.diffRemoved(context).withValues(alpha: 0.1),
+                      textColor: AppColors.diffRemoved(context),
                     ),
                   ],
                 ],

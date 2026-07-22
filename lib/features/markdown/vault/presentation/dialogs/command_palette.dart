@@ -62,12 +62,16 @@ class _CommandPaletteState extends ConsumerState<CommandPalette> {
                     return ListTile(
                       leading: Icon(
                         command.icon,
-                        color: command.isDangerous ? Colors.red : null,
+                        color: command.isDangerous
+                            ? Theme.of(context).colorScheme.error
+                            : null,
                       ),
                       title: Text(
                         command.title,
                         style: TextStyle(
-                          color: command.isDangerous ? Colors.red : null,
+                          color: command.isDangerous
+                              ? Theme.of(context).colorScheme.error
+                              : null,
                         ),
                       ),
                       subtitle: Text(command.subtitle),

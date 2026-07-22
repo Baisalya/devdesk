@@ -178,6 +178,94 @@ class _DiffPageState extends ConsumerState<DiffPage>
     return LayoutBuilder(
       builder: (context, constraints) {
         final isWide = constraints.maxWidth >= AppBreakpoints.medium;
+        if (!isWide) {
+          return ListView(
+            padding: AppSpacing.page(context),
+            children: [
+              SizedBox(
+                height: 190,
+                child: _Editor(
+                  label: 'Source A',
+                  controller: _leftController,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              SizedBox(
+                height: 190,
+                child: _Editor(
+                  label: 'Source B',
+                  controller: _rightController,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              Wrap(
+                spacing: AppSpacing.sm,
+                runSpacing: AppSpacing.sm,
+                children: [
+                  FilledButton.icon(
+                    onPressed: _diffRunning ? null : _runDiff,
+                    icon: _diffRunning
+                        ? const SizedBox.square(
+                            dimension: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.compare_arrows),
+                    label: Text(_diffRunning ? 'Comparing…' : 'Compare'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: _clear,
+                    icon: const Icon(Icons.backspace_outlined),
+                    label: const Text('Clear'),
+                  ),
+                  if (diffs.isNotEmpty)
+                    PopupMenuButton<String>(
+                      onSelected: _handleExport,
+                      itemBuilder: (context) => const [
+                        PopupMenuItem(
+                          value: 'txt',
+                          child: Text('Export as Text'),
+                        ),
+                        PopupMenuItem(
+                          value: 'md',
+                          child: Text('Export as Markdown'),
+                        ),
+                        PopupMenuItem(
+                          value: 'patch',
+                          child: Text('Copy Patch'),
+                        ),
+                      ],
+                      child: const OutlinedButton(
+                        onPressed: null,
+                        child: Text('Export'),
+                      ),
+                    ),
+                ],
+              ),
+              if (_diffError != null || _diffRunning) ...[
+                const SizedBox(height: AppSpacing.sm),
+                Semantics(
+                  liveRegion: true,
+                  child: Text(
+                    _diffError ?? 'Comparison in progress',
+                    style: _diffError == null
+                        ? Theme.of(context).textTheme.bodySmall
+                        : TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                  ),
+                ),
+              ],
+              const SizedBox(height: AppSpacing.md),
+              SizedBox(
+                height: constraints.maxHeight.clamp(240, 340).toDouble(),
+                child: _DiffResultPanel(
+                  diffs: diffs,
+                  summary: summary,
+                ),
+              ),
+            ],
+          );
+        }
         return Padding(
           padding: const EdgeInsets.all(AppSpacing.md),
           child: Column(
@@ -601,12 +689,17 @@ class _DiffResultPanel extends StatelessWidget {
                 runSpacing: AppSpacing.xs,
                 children: [
                   AppBadge(
-                      label: 'Added ${summary!.added}', color: Colors.green),
+                    label: 'Added ${summary!.added}',
+                    color: AppColors.diffAdded(context),
+                  ),
                   AppBadge(
-                      label: 'Removed ${summary!.removed}', color: Colors.red),
+                    label: 'Removed ${summary!.removed}',
+                    color: AppColors.diffRemoved(context),
+                  ),
                   AppBadge(
-                      label: 'Blocks ${summary!.changedBlocks}',
-                      color: Colors.blue),
+                    label: 'Blocks ${summary!.changedBlocks}',
+                    color: AppColors.diffModified(context),
+                  ),
                 ],
               ),
             ),
@@ -641,11 +734,11 @@ class _DiffText extends StatelessWidget {
       Color? bgColor;
       Color? textColor;
       if (diff.operation == dmp.DIFF_INSERT) {
-        bgColor = Colors.green.withValues(alpha: 0.2);
-        textColor = Colors.green[800];
+        textColor = AppColors.diffAdded(context);
+        bgColor = textColor.withValues(alpha: 0.18);
       } else if (diff.operation == dmp.DIFF_DELETE) {
-        bgColor = Colors.red.withValues(alpha: 0.2);
-        textColor = Colors.red[800];
+        textColor = AppColors.diffRemoved(context);
+        bgColor = textColor.withValues(alpha: 0.18);
       }
       spans.add(
         TextSpan(

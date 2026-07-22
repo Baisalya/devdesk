@@ -611,11 +611,15 @@ class _EditorHeader extends StatelessWidget {
             ),
           ),
           if (hasUnsavedChanges)
-            const Padding(
-              padding: EdgeInsets.only(right: AppSpacing.xs),
+            Padding(
+              padding: const EdgeInsets.only(right: AppSpacing.xs),
               child: Tooltip(
                 message: 'Unsaved changes',
-                child: Icon(Icons.circle, size: 12, color: Colors.orange),
+                child: Icon(
+                  Icons.circle,
+                  size: 12,
+                  color: AppColors.warning(context),
+                ),
               ),
             ),
           IconButton(
@@ -839,11 +843,15 @@ class _EditorFooter extends StatelessWidget {
               ),
             ],
             if (VaultParser.containsSecrets(content))
-              const Padding(
-                padding: EdgeInsets.only(left: AppSpacing.sm),
+              Padding(
+                padding: const EdgeInsets.only(left: AppSpacing.sm),
                 child: Tooltip(
                   message: 'Potential secrets detected',
-                  child: Icon(Icons.warning, size: 16, color: Colors.red),
+                  child: Icon(
+                    Icons.warning,
+                    size: 16,
+                    color: Theme.of(context).colorScheme.error,
+                  ),
                 ),
               ),
           ],

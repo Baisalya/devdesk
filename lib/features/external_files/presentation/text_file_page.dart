@@ -296,15 +296,16 @@ class _TextFilePageState extends ConsumerState<TextFilePage> {
                     ),
                   );
                 }
-                return Padding(
+                return ListView(
                   padding: AppSpacing.page(context),
-                  child: Column(
-                    children: [
-                      SizedBox(height: 220, child: info),
-                      const SizedBox(height: AppSpacing.md),
-                      Expanded(child: editor),
-                    ],
-                  ),
+                  children: [
+                    SizedBox(height: 220, child: info),
+                    const SizedBox(height: AppSpacing.md),
+                    SizedBox(
+                      height: constraints.maxHeight.clamp(300, 520).toDouble(),
+                      child: editor,
+                    ),
+                  ],
                 );
               },
             ),
@@ -376,8 +377,9 @@ class _FileInfoPanel extends StatelessWidget {
               AppBadge(
                 label: hasUnsavedChanges ? 'Unsaved' : 'Saved',
                 icon: hasUnsavedChanges ? Icons.edit : Icons.check,
-                color:
-                    hasUnsavedChanges ? AppColors.warning : AppColors.success,
+                color: hasUnsavedChanges
+                    ? AppColors.warning(context)
+                    : AppColors.success(context),
                 backgroundColor: hasUnsavedChanges
                     ? AppColors.warningContainer(context)
                     : AppColors.successContainer(context),

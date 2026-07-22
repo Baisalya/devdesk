@@ -11,27 +11,31 @@ Widget buildSafeMarkdownImage(Uri uri, String? title, String? alt) {
     excludeSemantics: true,
     label:
         remote ? '$label. Remote image blocked.' : '$label. Image not loaded.',
-    child: Container(
-      constraints: const BoxConstraints(minHeight: 48),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.image_not_supported_outlined),
-          const SizedBox(width: 8),
-          Flexible(
-            child: Text(
-              remote
-                  ? '$label — remote image blocked'
-                  : '$label — image not loaded',
-            ),
+    child: Builder(
+      builder: (context) {
+        return Container(
+          constraints: const BoxConstraints(minHeight: 48),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            border: Border.all(color: Theme.of(context).colorScheme.outline),
+            borderRadius: BorderRadius.circular(8),
           ),
-        ],
-      ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.image_not_supported_outlined),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  remote
+                      ? '$label — remote image blocked'
+                      : '$label — image not loaded',
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     ),
   );
 }

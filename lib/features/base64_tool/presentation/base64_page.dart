@@ -52,6 +52,7 @@ class _Base64PageState extends ConsumerState<Base64Page> {
             onEncode: () => encodeBase64(ref),
             onDecode: () => decodeBase64(ref),
             onClear: _clear,
+            compact: !isWide,
           );
           final result = AppResultPanel(
             title: 'Output',
@@ -59,23 +60,28 @@ class _Base64PageState extends ConsumerState<Base64Page> {
             emptyTitle: 'Result will appear here',
             emptyMessage: 'Encode or decode text to generate output.',
           );
-          return Padding(
+          if (isWide) {
+            return Padding(
+              padding: AppSpacing.page(context),
+              child: Row(
+                children: [
+                  Expanded(child: input),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(child: result),
+                ],
+              ),
+            );
+          }
+          return ListView(
             padding: AppSpacing.page(context),
-            child: isWide
-                ? Row(
-                    children: [
-                      Expanded(child: input),
-                      const SizedBox(width: AppSpacing.md),
-                      Expanded(child: result),
-                    ],
-                  )
-                : Column(
-                    children: [
-                      Expanded(child: input),
-                      const SizedBox(height: AppSpacing.md),
-                      Expanded(child: result),
-                    ],
-                  ),
+            children: [
+              input,
+              const SizedBox(height: AppSpacing.md),
+              SizedBox(
+                height: constraints.maxHeight.clamp(220, 320).toDouble(),
+                child: result,
+              ),
+            ],
           );
         },
       ),
@@ -88,16 +94,28 @@ class _Base64InputPanel extends StatelessWidget {
   final VoidCallback onEncode;
   final VoidCallback onDecode;
   final VoidCallback onClear;
+  final bool compact;
 
   const _Base64InputPanel({
     required this.controller,
     required this.onEncode,
     required this.onDecode,
     required this.onClear,
+    required this.compact,
   });
 
   @override
   Widget build(BuildContext context) {
+    final inputField = TextField(
+      controller: controller,
+      expands: !compact,
+      minLines: compact ? 4 : null,
+      maxLines: compact ? 8 : null,
+      decoration: const InputDecoration(
+        hintText: 'Paste text or Base64 here',
+        alignLabelWithHint: true,
+      ),
+    );
     return AppCard(
       padding: const EdgeInsets.all(AppSpacing.md),
       child: Column(
@@ -105,18 +123,7 @@ class _Base64InputPanel extends StatelessWidget {
         children: [
           Text('Input', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: AppSpacing.sm),
-          Expanded(
-            child: TextField(
-              controller: controller,
-              expands: true,
-              minLines: null,
-              maxLines: null,
-              decoration: const InputDecoration(
-                hintText: 'Paste text or Base64 here',
-                alignLabelWithHint: true,
-              ),
-            ),
-          ),
+          if (compact) inputField else Expanded(child: inputField),
           const SizedBox(height: AppSpacing.md),
           Wrap(
             spacing: AppSpacing.xs,

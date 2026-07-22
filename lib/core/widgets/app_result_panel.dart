@@ -31,52 +31,71 @@ class AppResultPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return AppCard(
       padding: EdgeInsets.zero,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              AppSpacing.md,
-              AppSpacing.sm,
-              AppSpacing.sm,
-              AppSpacing.sm,
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    title,
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final panelBody = child ??
+              (text == null || text!.isEmpty
+                  ? AppEmptyState(
+                      icon: Icons.terminal,
+                      title: emptyTitle,
+                      message: emptyMessage,
+                    )
+                  : Container(
+                      color: AppColors.codeBackground(context),
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.all(AppSpacing.md),
+                        child: SelectableText(
+                          text!,
+                          style: monospace
+                              ? AppTypography.mono(context)
+                              : Theme.of(context).textTheme.bodyMedium,
+                        ),
+                      ),
+                    ));
+          if (constraints.hasBoundedHeight && constraints.maxHeight < 72) {
+            return panelBody;
+          }
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.md,
+                  AppSpacing.sm,
+                  AppSpacing.sm,
+                  AppSpacing.sm,
                 ),
-                ...actions,
-                if (text != null) AppCopyButton(value: text),
-              ],
-            ),
-          ),
-          const Divider(height: 1),
-          Expanded(
-            child: child ??
-                (text == null || text!.isEmpty
-                    ? AppEmptyState(
-                        icon: Icons.terminal,
-                        title: emptyTitle,
-                        message: emptyMessage,
-                      )
-                    : Container(
-                        color: AppColors.codeBackground(context),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                    ),
+                    if (actions.isNotEmpty || text != null)
+                      Flexible(
                         child: SingleChildScrollView(
-                          padding: const EdgeInsets.all(AppSpacing.md),
-                          child: SelectableText(
-                            text!,
-                            style: monospace
-                                ? AppTypography.mono(context)
-                                : Theme.of(context).textTheme.bodyMedium,
+                          scrollDirection: Axis.horizontal,
+                          reverse: true,
+                          child: Row(
+                            children: [
+                              ...actions,
+                              if (text != null) AppCopyButton(value: text),
+                            ],
                           ),
                         ),
-                      )),
-          ),
-        ],
+                      ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              Expanded(child: panelBody),
+            ],
+          );
+        },
       ),
     );
   }

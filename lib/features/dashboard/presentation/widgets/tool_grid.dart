@@ -35,11 +35,13 @@ class ToolGrid extends StatelessWidget {
                 : width >= AppBreakpoints.compact
                     ? 2
                     : 1;
-        final childAspectRatio = switch (crossAxisCount) {
-          1 => 3.2,
-          2 => 2.55,
-          3 => 2.45,
-          _ => 2.25,
+        final textScale = MediaQuery.textScalerOf(context).scale(1);
+        final narrow = AppBreakpoints.isNarrow(width);
+        final mainAxisExtent = switch (crossAxisCount) {
+          1 when narrow => 72.0 + ((textScale - 1).clamp(0, 1) * 24),
+          1 => 104.0 + ((textScale - 1).clamp(0, 1) * 36),
+          2 => 120.0 + ((textScale - 1).clamp(0, 1) * 36),
+          _ => 104.0 + ((textScale - 1).clamp(0, 1) * 24),
         };
         return GridView.builder(
           shrinkWrap: shrinkWrap,
@@ -49,7 +51,7 @@ class ToolGrid extends StatelessWidget {
             crossAxisCount: crossAxisCount,
             crossAxisSpacing: AppSpacing.md,
             mainAxisSpacing: AppSpacing.md,
-            childAspectRatio: childAspectRatio,
+            mainAxisExtent: mainAxisExtent,
           ),
           itemBuilder: (context, index) {
             final tool = tools[index];
@@ -59,7 +61,7 @@ class ToolGrid extends StatelessWidget {
               favourite: isFav,
               onTap: () => onOpenTool(tool.route),
               onFavouritePressed: () => onToggleFavourite(tool.route),
-              dense: crossAxisCount > 2,
+              dense: crossAxisCount > 2 || narrow,
             );
           },
         );

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -8,6 +10,7 @@ import '../../../core/files/external_file_service.dart';
 import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/app_empty_state.dart';
 import '../../../core/widgets/app_section_header.dart';
+import '../../rating/provider/rating_service.dart';
 import '../provider/tool_providers.dart';
 import 'widgets/tool_grid.dart';
 
@@ -23,6 +26,17 @@ class DashboardPage extends ConsumerStatefulWidget {
 class _DashboardPageState extends ConsumerState<DashboardPage> {
   bool _isSearchActive = false;
   final _searchController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(
+        ref.read(ratingServiceProvider).showRateDialogIfMeetsCriteria(context),
+      );
+    });
+  }
 
   @override
   void dispose() {

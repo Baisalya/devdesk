@@ -606,7 +606,9 @@ class _DocumentStatusBar extends StatelessWidget {
             AppBadge(
               label: hasUnsavedChanges ? 'Unsaved' : 'Saved',
               icon: hasUnsavedChanges ? Icons.edit : Icons.check,
-              color: hasUnsavedChanges ? AppColors.warning : AppColors.success,
+              color: hasUnsavedChanges
+                  ? AppColors.warning(context)
+                  : AppColors.success(context),
               backgroundColor: hasUnsavedChanges
                   ? AppColors.warningContainer(context)
                   : AppColors.successContainer(context),

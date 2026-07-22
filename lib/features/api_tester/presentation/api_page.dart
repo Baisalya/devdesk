@@ -1000,7 +1000,7 @@ class _ResponseSection extends ConsumerWidget {
     final pretty = _prettyBody(currentResponse.body);
     final raw = currentResponse.body;
     final sizeLabel = _formatBytes(utf8.encode(currentResponse.body).length);
-    final statusColor = _statusColor(currentResponse.statusCode);
+    final statusColor = _statusColor(context, currentResponse.statusCode);
     final statusBackground =
         _statusBackground(context, currentResponse.statusCode);
 
@@ -1102,11 +1102,17 @@ class _ResponseSection extends ConsumerWidget {
     return '${(kb / 1024).toStringAsFixed(1)} MB';
   }
 
-  Color _statusColor(int statusCode) {
-    if (statusCode >= 200 && statusCode < 300) return AppColors.success;
-    if (statusCode >= 300 && statusCode < 400) return AppColors.info;
-    if (statusCode >= 400 && statusCode < 500) return AppColors.warning;
-    return AppColors.destructive;
+  Color _statusColor(BuildContext context, int statusCode) {
+    if (statusCode >= 200 && statusCode < 300) {
+      return AppColors.success(context);
+    }
+    if (statusCode >= 300 && statusCode < 400) {
+      return AppColors.info(context);
+    }
+    if (statusCode >= 400 && statusCode < 500) {
+      return AppColors.warning(context);
+    }
+    return AppColors.destructive(context);
   }
 
   Color _statusBackground(BuildContext context, int statusCode) {

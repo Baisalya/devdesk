@@ -20,6 +20,7 @@ import '../features/uuid_tool/presentation/uuid_page.dart';
 import '../features/diff_checker/presentation/diff_page.dart';
 import '../features/snippets/presentation/snippets_page.dart';
 import '../features/settings/presentation/settings_page.dart';
+import '../features/privacy/presentation/privacy_policy_page.dart';
 
 /// Generates routes for the application.
 Route<dynamic> generateRoute(RouteSettings settings) {
@@ -80,6 +81,8 @@ Route<dynamic> generateRoute(RouteSettings settings) {
           initialDocument: _externalFileArgument(settings.arguments),
         ),
       );
+    case '/privacy':
+      return MaterialPageRoute(builder: (_) => const PrivacyPolicyPage());
     case '/external-text':
       final document = _externalFileArgument(settings.arguments);
       if (document == null) {

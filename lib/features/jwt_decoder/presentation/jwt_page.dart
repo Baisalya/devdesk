@@ -42,64 +42,82 @@ class _JwtPageState extends ConsumerState<JwtPage> {
   @override
   Widget build(BuildContext context) {
     final decoded = ref.watch(jwtDecodedProvider);
+    final input = AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Token input',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          TextField(
+            controller: _inputController,
+            maxLines: 4,
+            style: AppTypography.mono(context),
+            decoration: InputDecoration(
+              hintText: 'eyJhbGciOiJIUzI1NiIsInR...',
+              fillColor: AppColors.codeBackground(context),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: FilledButton.icon(
+              onPressed: () => decodeJwt(ref),
+              icon: const Icon(Icons.travel_explore),
+              label: const Text('Decode'),
+            ),
+          ),
+        ],
+      ),
+    );
+    final result = decoded.when(
+      data: (result) {
+        if (result.isEmpty) {
+          return const AppEmptyState(
+            icon: Icons.lock_open,
+            title: 'Enter a token to decode',
+            message:
+                'Header, payload, claims and expiry details stay local on this device.',
+          );
+        }
+        return _DecodedJwtView(result: result);
+      },
+      loading: () => const AppLoadingState(label: 'Decoding token...'),
+      error: (err, stack) => AppErrorState(message: err.toString()),
+    );
     return Scaffold(
       appBar: AppBar(title: const Text('JWT Decoder')),
-      body: Padding(
-        padding: AppSpacing.page(context),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            AppCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Token input',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: AppSpacing.xs),
-                  TextField(
-                    controller: _inputController,
-                    maxLines: 4,
-                    style: AppTypography.mono(context),
-                    decoration: InputDecoration(
-                      hintText: 'eyJhbGciOiJIUzI1NiIsInR...',
-                      fillColor: AppColors.codeBackground(context),
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: FilledButton.icon(
-                      onPressed: () => decodeJwt(ref),
-                      icon: const Icon(Icons.travel_explore),
-                      label: const Text('Decode'),
-                    ),
-                  ),
-                ],
-              ),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxHeight < 500 ||
+              MediaQuery.textScalerOf(context).scale(1) > 1.4;
+          if (compact) {
+            return ListView(
+              padding: AppSpacing.page(context),
+              children: [
+                input,
+                const SizedBox(height: AppSpacing.md),
+                SizedBox(
+                  height: constraints.maxHeight.clamp(200, 320).toDouble(),
+                  child: result,
+                ),
+              ],
+            );
+          }
+          return Padding(
+            padding: AppSpacing.page(context),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                input,
+                const SizedBox(height: AppSpacing.md),
+                Expanded(child: result),
+              ],
             ),
-            const SizedBox(height: AppSpacing.md),
-            Expanded(
-              child: decoded.when(
-                data: (result) {
-                  if (result.isEmpty) {
-                    return const AppEmptyState(
-                      icon: Icons.lock_open,
-                      title: 'Enter a token to decode',
-                      message:
-                          'Header, payload, claims and expiry details stay local on this device.',
-                    );
-                  }
-                  return _DecodedJwtView(result: result);
-                },
-                loading: () =>
-                    const AppLoadingState(label: 'Decoding token...'),
-                error: (err, stack) => AppErrorState(message: err.toString()),
-              ),
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -164,8 +182,9 @@ class _DecodedJwtView extends StatelessWidget {
                     AppBadge(
                       label: expired ? 'Expired' : 'Active',
                       icon: expired ? Icons.error_outline : Icons.check,
-                      color:
-                          expired ? AppColors.destructive : AppColors.success,
+                      color: expired
+                          ? AppColors.destructive(context)
+                          : AppColors.success(context),
                       backgroundColor: expired
                           ? Theme.of(context).colorScheme.errorContainer
                           : AppColors.successContainer(context),

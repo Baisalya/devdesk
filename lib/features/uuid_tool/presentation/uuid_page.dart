@@ -53,23 +53,28 @@ class _UuidPageState extends ConsumerState<UuidPage> {
             onGenerate: () => generateUuids(ref),
           );
           final list = _UuidListPanel(uuids: uuids);
-          return Padding(
+          if (isWide) {
+            return Padding(
+              padding: AppSpacing.page(context),
+              child: Row(
+                children: [
+                  SizedBox(width: 360, child: generator),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(child: list),
+                ],
+              ),
+            );
+          }
+          return ListView(
             padding: AppSpacing.page(context),
-            child: isWide
-                ? Row(
-                    children: [
-                      SizedBox(width: 360, child: generator),
-                      const SizedBox(width: AppSpacing.md),
-                      Expanded(child: list),
-                    ],
-                  )
-                : Column(
-                    children: [
-                      SizedBox(height: 220, child: generator),
-                      const SizedBox(height: AppSpacing.md),
-                      Expanded(child: list),
-                    ],
-                  ),
+            children: [
+              generator,
+              const SizedBox(height: AppSpacing.md),
+              SizedBox(
+                height: constraints.maxHeight.clamp(240, 360).toDouble(),
+                child: list,
+              ),
+            ],
           );
         },
       ),
@@ -137,15 +142,13 @@ class _UuidListPanel extends StatelessWidget {
               AppSpacing.sm,
               AppSpacing.sm,
             ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'Generated UUIDs',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                ),
-                OutlinedButton.icon(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final title = Text(
+                  'Generated UUIDs',
+                  style: Theme.of(context).textTheme.titleMedium,
+                );
+                final copyButton = OutlinedButton.icon(
                   onPressed: uuids.isEmpty
                       ? null
                       : () async {
@@ -159,8 +162,26 @@ class _UuidListPanel extends StatelessWidget {
                         },
                   icon: const Icon(Icons.copy_all),
                   label: const Text('Copy all'),
-                ),
-              ],
+                );
+                final stack = constraints.maxWidth < 480 ||
+                    MediaQuery.textScalerOf(context).scale(1) > 1.4;
+                if (stack) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      title,
+                      const SizedBox(height: AppSpacing.xs),
+                      copyButton,
+                    ],
+                  );
+                }
+                return Row(
+                  children: [
+                    Expanded(child: title),
+                    copyButton,
+                  ],
+                );
+              },
             ),
           ),
           const Divider(height: 1),

@@ -4,4 +4,4 @@ Use the repository issue tracker for reproducible bugs and feature requests. Inc
 
 Never post real API keys, tokens, cookies, passwords, private endpoints, request bodies, responses, backups, or personal information. Replace them with disposable canary values.
 
-Security-sensitive reports must follow `SECURITY.md`. Store listing support email and public privacy-policy URL remain release-owner inputs and must be supplied before store submission.
+Security-sensitive reports must follow `SECURITY.md`. The static privacy-policy page is ready in `docs/privacy-policy.html`, but its deployed public URL and the store listing support email remain release-owner inputs that must be verified before store submission.

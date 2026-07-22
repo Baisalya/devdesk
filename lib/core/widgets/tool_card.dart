@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/constants/tool_list.dart';
+import '../design/app_colors.dart';
 import '../design/app_spacing.dart';
 import 'app_card.dart';
 
@@ -71,7 +72,7 @@ class ToolCard extends StatelessWidget {
               const SizedBox(width: AppSpacing.xs),
               IconButton(
                 icon: Icon(favourite ? Icons.star : Icons.star_border),
-                color: favourite ? const Color(0xFFEAB308) : null,
+                color: favourite ? AppColors.favorite(context) : null,
                 tooltip:
                     favourite ? 'Remove from favourites' : 'Add to favourites',
                 onPressed: onFavouritePressed,

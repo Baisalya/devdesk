@@ -15,6 +15,9 @@ class AppSpacing {
 
   static EdgeInsets page(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
+    if (AppBreakpoints.isNarrow(width)) {
+      return const EdgeInsets.all(sm);
+    }
     if (AppBreakpoints.isExpanded(width)) {
       return const EdgeInsets.all(xxl);
     }

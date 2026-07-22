@@ -516,25 +516,69 @@ class _WorkspaceDashboard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final compactActions = MediaQuery.sizeOf(context).width < 600 ||
+        MediaQuery.textScalerOf(context).scale(1) > 1.4;
     return Scaffold(
       appBar: AppBar(
         title: const Text('API Workspaces'),
         actions: [
-          TextButton.icon(
-            onPressed: onQuickRequest,
-            icon: const Icon(Icons.bolt),
-            label: const Text('Quick Request'),
-          ),
-          IconButton(
-            icon: const Icon(Icons.upload_file),
-            tooltip: 'Import workspace',
-            onPressed: onImport,
-          ),
-          IconButton(
-            icon: const Icon(Icons.add),
-            tooltip: 'Create workspace',
-            onPressed: onCreate,
-          ),
+          if (compactActions)
+            PopupMenuButton<String>(
+              tooltip: 'Workspace actions',
+              onSelected: (value) {
+                switch (value) {
+                  case 'quick':
+                    onQuickRequest();
+                    return;
+                  case 'import':
+                    onImport();
+                    return;
+                  case 'create':
+                    onCreate();
+                    return;
+                }
+              },
+              itemBuilder: (context) => const [
+                PopupMenuItem(
+                  value: 'quick',
+                  child: ListTile(
+                    leading: Icon(Icons.bolt),
+                    title: Text('Quick request'),
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'import',
+                  child: ListTile(
+                    leading: Icon(Icons.upload_file),
+                    title: Text('Import workspace'),
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'create',
+                  child: ListTile(
+                    leading: Icon(Icons.add),
+                    title: Text('Create workspace'),
+                  ),
+                ),
+              ],
+            )
+          else ...[
+            TextButton.icon(
+              onPressed: onQuickRequest,
+              icon: const Icon(Icons.bolt),
+              label: const Text('Quick Request'),
+            ),
+            IconButton(
+              icon: const Icon(Icons.upload_file),
+              tooltip: 'Import workspace',
+              onPressed: onImport,
+            ),
+            IconButton(
+              icon: const Icon(Icons.add),
+              tooltip: 'Create workspace',
+              onPressed: onCreate,
+            ),
+          ],
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
@@ -708,7 +752,7 @@ class _WorkspaceCard extends StatelessWidget {
               Icon(
                 workspace.favorite ? Icons.star : Icons.folder_copy,
                 color: workspace.favorite
-                    ? AppColors.warning
+                    ? AppColors.warning(context)
                     : Theme.of(context).colorScheme.primary,
               ),
               const SizedBox(width: AppSpacing.xs),
@@ -2810,7 +2854,7 @@ class _ResponseViewerState extends State<_ResponseViewer> {
             children: [
               AppBadge(
                 label: 'Status ${response.statusCode}',
-                color: _statusColor(response.statusCode),
+                color: _statusColor(context, response.statusCode),
                 backgroundColor:
                     _statusBackground(context, response.statusCode),
               ),
@@ -2854,7 +2898,10 @@ class _ResponseViewerState extends State<_ResponseViewer> {
               filled: false,
               child: Row(
                 children: [
-                  const Icon(Icons.warning_amber, color: AppColors.warning),
+                  Icon(
+                    Icons.warning_amber,
+                    color: AppColors.warning(context),
+                  ),
                   const SizedBox(width: AppSpacing.sm),
                   Expanded(
                     child: Text(
@@ -3007,7 +3054,9 @@ class _AssertionResults extends StatelessWidget {
           ListTile(
             leading: Icon(
               result.passed ? Icons.check_circle : Icons.error,
-              color: result.passed ? AppColors.success : AppColors.destructive,
+              color: result.passed
+                  ? AppColors.success(context)
+                  : AppColors.destructive(context),
             ),
             title: Text(result.name),
             subtitle: Text(result.message),
@@ -3038,7 +3087,9 @@ class _ExtractionResults extends StatelessWidget {
           ListTile(
             leading: Icon(
               result.success ? Icons.check_circle : Icons.error,
-              color: result.success ? AppColors.success : AppColors.destructive,
+              color: result.success
+                  ? AppColors.success(context)
+                  : AppColors.destructive(context),
             ),
             title: Text(result.variableName),
             subtitle:
@@ -3429,10 +3480,10 @@ class _RunnerScreen extends StatelessWidget {
                               ? Icons.check_circle
                               : Icons.error,
                       color: result.passed
-                          ? AppColors.success
+                          ? AppColors.success(context)
                           : result.skipped
-                              ? AppColors.warning
-                              : AppColors.destructive,
+                              ? AppColors.warning(context)
+                              : AppColors.destructive(context),
                     ),
                     title: Text(result.requestName),
                     subtitle: Text(result.message),
@@ -3649,10 +3700,10 @@ class _MethodBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = switch (method.toUpperCase()) {
-      'GET' => AppColors.info,
-      'POST' => AppColors.success,
-      'PUT' || 'PATCH' => AppColors.warning,
-      'DELETE' => AppColors.destructive,
+      'GET' => AppColors.info(context),
+      'POST' => AppColors.success(context),
+      'PUT' || 'PATCH' => AppColors.warning(context),
+      'DELETE' => AppColors.destructive(context),
       _ => Theme.of(context).colorScheme.primary,
     };
     return AppBadge(
@@ -3750,11 +3801,17 @@ String _formatBytes(int bytes) {
   return '${(kb / 1024).toStringAsFixed(1)} MB';
 }
 
-Color _statusColor(int statusCode) {
-  if (statusCode >= 200 && statusCode < 300) return AppColors.success;
-  if (statusCode >= 300 && statusCode < 400) return AppColors.info;
-  if (statusCode >= 400 && statusCode < 500) return AppColors.warning;
-  return AppColors.destructive;
+Color _statusColor(BuildContext context, int statusCode) {
+  if (statusCode >= 200 && statusCode < 300) {
+    return AppColors.success(context);
+  }
+  if (statusCode >= 300 && statusCode < 400) {
+    return AppColors.info(context);
+  }
+  if (statusCode >= 400 && statusCode < 500) {
+    return AppColors.warning(context);
+  }
+  return AppColors.destructive(context);
 }
 
 Color _statusBackground(BuildContext context, int statusCode) {

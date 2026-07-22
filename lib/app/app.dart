@@ -2,67 +2,71 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../core/storage/local_storage.dart';
 import 'command_registry.dart';
 import 'router.dart';
-import 'theme/dark_theme.dart';
-import 'theme/light_theme.dart';
+import 'theme/app_theme_factory.dart';
+import 'theme/theme_controller.dart';
+import 'theme/theme_preferences.dart';
+import '../features/privacy/presentation/privacy_acceptance_gate.dart';
+import '../features/privacy/provider/privacy_acceptance_provider.dart';
 
 /// The root widget of the application.
 ///
-/// [MyApp] configures theming and routing. It also listens to the
-/// `themeModeProvider` to toggle between light and dark modes.
+/// [MyApp] configures theming and routing from the persisted appearance
+/// preferences.
 class MyApp extends ConsumerWidget {
   const MyApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final themeMode = ref.watch(themeModeProvider);
+    final preferences = ref.watch(themePreferencesProvider);
+    final privacyAccepted = ref.watch(privacyAcceptanceProvider).isAccepted;
+    final standardLight = AppThemeFactory.build(
+      palette: preferences.palette,
+      brightness: Brightness.light,
+      contrastMode: AppContrastMode.standard,
+      densityMode: preferences.densityMode,
+    );
+    final standardDark = AppThemeFactory.build(
+      palette: preferences.palette,
+      brightness: Brightness.dark,
+      contrastMode: AppContrastMode.standard,
+      densityMode: preferences.densityMode,
+    );
+    final highContrastLight = AppThemeFactory.build(
+      palette: preferences.palette,
+      brightness: Brightness.light,
+      contrastMode: AppContrastMode.high,
+      densityMode: preferences.densityMode,
+    );
+    final highContrastDark = AppThemeFactory.build(
+      palette: preferences.palette,
+      brightness: Brightness.dark,
+      contrastMode: AppContrastMode.high,
+      densityMode: preferences.densityMode,
+    );
+    final forceHighContrast = preferences.contrastMode == AppContrastMode.high;
+    final forceStandardContrast =
+        preferences.contrastMode == AppContrastMode.standard;
+
     return MaterialApp(
       navigatorKey: devDeskNavigatorKey,
       title: 'DevDesk',
       debugShowCheckedModeBanner: false,
-      theme: lightTheme,
-      darkTheme: darkTheme,
-      themeMode: themeMode,
-      shortcuts: kIsWeb ? null : devDeskShortcuts,
-      actions: kIsWeb ? null : devDeskActions,
+      theme: forceHighContrast ? highContrastLight : standardLight,
+      darkTheme: forceHighContrast ? highContrastDark : standardDark,
+      highContrastTheme:
+          forceStandardContrast ? standardLight : highContrastLight,
+      highContrastDarkTheme:
+          forceStandardContrast ? standardDark : highContrastDark,
+      themeMode: preferences.brightnessMode,
+      shortcuts: kIsWeb || !privacyAccepted ? null : devDeskShortcuts,
+      actions: kIsWeb || !privacyAccepted ? null : devDeskActions,
       onGenerateRoute: (settings) => generateRoute(settings),
       initialRoute: '/dashboard',
+      builder: (context, child) => PrivacyAcceptanceGate(
+        child: child ?? const SizedBox.shrink(),
+      ),
     );
   }
 }
-
-class ThemeModeNotifier extends StateNotifier<ThemeMode> {
-  ThemeModeNotifier() : super(ThemeMode.system) {
-    _load();
-  }
-
-  static const _storageKey = 'theme_mode';
-
-  Future<void> _load() async {
-    final box = await LocalStorage.openBox<dynamic>(LocalStorage.settingsBox);
-    final stored = box.get(_storageKey) as String?;
-    state = _fromStorageValue(stored);
-  }
-
-  Future<void> setThemeMode(ThemeMode mode) async {
-    state = mode;
-    final box = await LocalStorage.openBox<dynamic>(LocalStorage.settingsBox);
-    await box.put(_storageKey, mode.name);
-  }
-
-  static ThemeMode _fromStorageValue(String? value) {
-    return switch (value) {
-      'light' => ThemeMode.light,
-      'dark' => ThemeMode.dark,
-      _ => ThemeMode.system,
-    };
-  }
-}
-
-/// Provider storing the current [ThemeMode]. Defaults to system mode.
-final themeModeProvider =
-    StateNotifierProvider<ThemeModeNotifier, ThemeMode>((ref) {
-  return ThemeModeNotifier();
-});
