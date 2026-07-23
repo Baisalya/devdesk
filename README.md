@@ -10,6 +10,12 @@ The release scope includes:
 - README generation
 - JSON validation, formatting, minification, and accessible tree view
 - API workspaces with environments, collections, assertions, bounded streamed responses, cancellation, history, and redacted exports
+- Developer workspaces with local folder registration, metadata-only removal, health checks, and responsive navigation
+- Filesystem-backed Markdown knowledge editing with safe frontmatter, backlinks, focused graph, drafts, and conflict detection
+- OKF v0.1 Draft validation, templates, index/log planning, and health reporting
+- OpenAPI 3.x JSON/YAML inspection, API collection generation, linked Markdown, and structural comparison
+- Guarded local Windows Git status/diff/stage/unstage and recovery-patch-first tracked discard
+- Unified local search and typed cross-feature references
 - Local JWT decoding without signature verification
 - Regex, Base64, URL, timestamp, and UUID utilities
 - Text diff with bounded worker execution and redacted export
@@ -17,7 +23,7 @@ The release scope includes:
 - Versioned backup/restore with pre-validation, staging, persistent rollback journal, and secret exclusion
 - User-selected external Markdown, JSON, text/code, backup, and API collection files
 
-Features not listed above must not be advertised as production-ready. In particular, DevDesk does not provide Git working-tree integration, arbitrary repository cloning, cloud synchronization, remote AI, or certificate-bypass behavior.
+AI-provider and MCP extension contracts are present but disabled by default; no provider or server transport is bundled. DevDesk does not provide arbitrary repository cloning, cloud synchronization, certificate-bypass behavior, or silent AI/MCP writes.
 
 ## Security and privacy boundaries
 
@@ -28,7 +34,7 @@ Features not listed above must not be advertised as production-ready. In particu
 - Remote Markdown images are not loaded. This avoids unrequested network traffic and tracking pixels.
 - Release Android builds fail when production signing is not configured. No debug key is accepted for release.
 
-See `PRIVACY.md`, `SECURITY.md`, and `docs/release/PLATFORM_LIMITATIONS.md` for the complete boundaries.
+See `PRIVACY.md`, `SECURITY.md`, `docs/SECURITY_AND_PRIVACY.md`, and `docs/release/PLATFORM_LIMITATIONS.md` for the complete boundaries.
 
 ## External files
 
@@ -77,7 +83,7 @@ Release Android APK/AAB builds require external signing configuration described 
 
 ## Release status
 
-The remediation branch contains production code and regression tests, but a public release remains blocked until the final Flutter test/build matrix runs on supported hosts and real Android/Windows signing credentials are supplied. See `docs/release/VERIFICATION_REPORT.md`.
+Static analysis, 384 automated tests, the Windows release build, and Android debug build pass on 2026-07-22. Public distribution remains blocked by owner-supplied Android/Windows signing, physical Android testing, clean-VM Windows testing, and store publication tasks. See `docs/TESTING_AND_RELEASE_REPORT.md`.
 
 ## License and support
 

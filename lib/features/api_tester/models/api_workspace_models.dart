@@ -95,6 +95,10 @@ enum ApiRequestBodyType {
   none,
   rawJson,
   rawText,
+  rawXml,
+  rawHtml,
+  rawYaml,
+  graphql,
   formUrlEncoded,
   multipartFormData;
 
@@ -654,7 +658,12 @@ class ApiRequestItem {
     };
     final safeRaw = switch (body.type) {
       ApiRequestBodyType.rawJson => DataRedactor.redactJsonText(body.raw),
-      ApiRequestBodyType.rawText => DataRedactor.redactText(body.raw),
+      ApiRequestBodyType.rawText ||
+      ApiRequestBodyType.rawXml ||
+      ApiRequestBodyType.rawHtml ||
+      ApiRequestBodyType.rawYaml ||
+      ApiRequestBodyType.graphql =>
+        DataRedactor.redactText(body.raw),
       _ => body.raw,
     };
     return copyWith(

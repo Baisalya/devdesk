@@ -96,6 +96,64 @@ void main() {
     expect(sent, isFalse);
   });
 
+  test('XML, YAML, HTML and GraphQL bodies use explicit content types',
+      () async {
+    final cases = <ApiRequestBodyType, (String, String)>{
+      ApiRequestBodyType.rawXml: (
+        '<root><value>1</value></root>',
+        'application/xml'
+      ),
+      ApiRequestBodyType.rawYaml: (
+        'name: DevDesk\nenabled: true',
+        'application/yaml'
+      ),
+      ApiRequestBodyType.rawHtml: ('<strong>DevDesk</strong>', 'text/html'),
+      ApiRequestBodyType.graphql: (
+        'query { viewer { id } }',
+        'application/json'
+      ),
+    };
+    for (final entry in cases.entries) {
+      final client = MockClient((request) async {
+        expect(request.headers['content-type'], contains(entry.value.$2));
+        if (entry.key == ApiRequestBodyType.graphql) {
+          expect(request.body, contains('query'));
+          expect(request.body, contains('viewer'));
+        }
+        return http.Response('ok', 200);
+      });
+      final response = await ApiWorkspaceExecutor.execute(
+        prepared: _prepared(type: entry.key, body: entry.value.$1),
+        client: client,
+      );
+      expect(response.statusCode, 200);
+    }
+  });
+
+  test('malformed XML, YAML and GraphQL are rejected before network send',
+      () async {
+    var sends = 0;
+    final client = MockClient((request) async {
+      sends++;
+      return http.Response('', 200);
+    });
+    final invalid = <ApiRequestBodyType, String>{
+      ApiRequestBodyType.rawXml: '<root>',
+      ApiRequestBodyType.rawYaml: 'value: [unterminated',
+      ApiRequestBodyType.graphql: 'query { viewer { id }',
+    };
+    for (final entry in invalid.entries) {
+      await expectLater(
+        ApiWorkspaceExecutor.execute(
+          prepared: _prepared(type: entry.key, body: entry.value),
+          client: client,
+        ),
+        throwsA(isA<ApiFailure>()),
+      );
+    }
+    expect(sends, 0);
+  });
+
   test('GET multipart and URL credentials are rejected safely', () async {
     final client = MockClient((request) async => http.Response('', 200));
     await expectLater(

@@ -27,36 +27,41 @@ class _PrivacyAcceptanceGateState extends ConsumerState<PrivacyAcceptanceGate> {
   @override
   Widget build(BuildContext context) {
     final acceptance = ref.watch(privacyAcceptanceProvider);
-    if (acceptance.isAccepted) return widget.child;
 
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, result) {
-        if (!didPop && _showFullPolicy) {
-          setState(() => _showFullPolicy = false);
-        }
-      },
-      child: _showFullPolicy
-          ? Scaffold(
-              appBar: AppBar(
-                leading: Semantics(
-                  label: 'Back to acceptance',
-                  button: true,
-                  excludeSemantics: true,
-                  child: IconButton(
-                    key: const Key('privacy-policy-back'),
-                    onPressed: () => setState(() => _showFullPolicy = false),
-                    icon: const Icon(Icons.arrow_back),
+    return IndexedStack(
+      index: acceptance.isAccepted ? 1 : 0,
+      children: [
+        PopScope(
+          canPop: false,
+          onPopInvokedWithResult: (didPop, result) {
+            if (!didPop && _showFullPolicy) {
+              setState(() => _showFullPolicy = false);
+            }
+          },
+          child: _showFullPolicy
+              ? Scaffold(
+                  appBar: AppBar(
+                    leading: Semantics(
+                      label: 'Back to acceptance',
+                      button: true,
+                      excludeSemantics: true,
+                      child: IconButton(
+                        key: const Key('privacy-policy-back'),
+                        onPressed: () => setState(() => _showFullPolicy = false),
+                        icon: const Icon(Icons.arrow_back),
+                      ),
+                    ),
+                    title: const Text('Privacy Policy'),
                   ),
-                ),
-                title: const Text('Privacy Policy'),
-              ),
-              // MaterialApp.builder sits outside the root Navigator overlay.
-              // Selection remains available on the Settings policy page, which
-              // is routed inside that overlay.
-              body: const PrivacyPolicyView(selectable: false),
-            )
-          : _buildGate(context, acceptance),
+                  // MaterialApp.builder sits outside the root Navigator overlay.
+                  // Selection remains available on the Settings policy page, which
+                  // is routed inside that overlay.
+                  body: const PrivacyPolicyView(selectable: false),
+                )
+              : _buildGate(context, acceptance),
+        ),
+        widget.child,
+      ],
     );
   }
 

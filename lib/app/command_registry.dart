@@ -29,6 +29,11 @@ const devDeskCommands = <DevDeskCommand>[
     shortcut: 'Ctrl+L',
   ),
   DevDeskCommand(
+    label: 'Developer Workspaces',
+    route: '/workspaces',
+    icon: Icons.workspaces_outline,
+  ),
+  DevDeskCommand(
     label: 'New Markdown',
     route: '/markdown',
     icon: Icons.edit_document,
@@ -36,6 +41,17 @@ const devDeskCommands = <DevDeskCommand>[
   ),
   DevDeskCommand(label: 'Markdown Vault', route: '/vault', icon: Icons.folder),
   DevDeskCommand(label: 'API Tester', route: '/api', icon: Icons.api),
+  DevDeskCommand(
+    label: 'OpenAPI Studio',
+    route: '/openapi',
+    icon: Icons.schema,
+  ),
+  DevDeskCommand(
+    label: 'Unified Search',
+    route: '/search',
+    icon: Icons.manage_search,
+    shortcut: 'Ctrl+K',
+  ),
   DevDeskCommand(label: 'JSON Tools', route: '/json', icon: Icons.data_object),
   DevDeskCommand(label: 'Diff Checker', route: '/diff', icon: Icons.difference),
   DevDeskCommand(label: 'Snippets', route: '/snippets', icon: Icons.note),

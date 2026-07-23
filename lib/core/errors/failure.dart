@@ -4,9 +4,16 @@ enum FailureSeverity { info, warning, error, critical }
 /// Technical category safe to include in support diagnostics.
 enum FailureCategory {
   validation,
+  parsing,
   network,
   storage,
   fileSystem,
+  permission,
+  git,
+  database,
+  migration,
+  searchIndex,
+  importExport,
   security,
   platform,
   unknown,
@@ -126,4 +133,95 @@ class ApiFailure extends Failure {
     super.retryable = true,
     super.correlationId,
   });
+}
+
+class ValidationFailure extends Failure {
+  ValidationFailure(
+    super.message, {
+    required super.code,
+    super.severity = FailureSeverity.warning,
+    super.retryable = false,
+    super.correlationId,
+  }) : super(category: FailureCategory.validation);
+}
+
+class ParsingFailure extends Failure {
+  ParsingFailure(
+    super.message, {
+    required super.code,
+    super.severity = FailureSeverity.error,
+    super.retryable = false,
+    super.correlationId,
+  }) : super(category: FailureCategory.parsing);
+}
+
+class StorageFailure extends Failure {
+  StorageFailure(
+    super.message, {
+    required super.code,
+    super.severity = FailureSeverity.error,
+    super.retryable = false,
+    super.correlationId,
+  }) : super(category: FailureCategory.storage);
+}
+
+class FileAccessFailure extends Failure {
+  FileAccessFailure(
+    super.message, {
+    required super.code,
+    super.severity = FailureSeverity.error,
+    super.category = FailureCategory.fileSystem,
+    super.retryable = false,
+    super.correlationId,
+  });
+}
+
+class PermissionFailure extends Failure {
+  PermissionFailure(
+    super.message, {
+    required super.code,
+    super.severity = FailureSeverity.warning,
+    super.retryable = true,
+    super.correlationId,
+  }) : super(category: FailureCategory.permission);
+}
+
+class PlatformCapabilityFailure extends Failure {
+  PlatformCapabilityFailure(
+    super.message, {
+    required super.code,
+    super.severity = FailureSeverity.info,
+    super.retryable = false,
+    super.correlationId,
+  }) : super(category: FailureCategory.platform);
+}
+
+class GitFailure extends Failure {
+  GitFailure(
+    super.message, {
+    required super.code,
+    super.severity = FailureSeverity.error,
+    super.retryable = false,
+    super.correlationId,
+  }) : super(category: FailureCategory.git);
+}
+
+class MigrationFailure extends Failure {
+  MigrationFailure(
+    super.message, {
+    required super.code,
+    super.severity = FailureSeverity.critical,
+    super.retryable = true,
+    super.correlationId,
+  }) : super(category: FailureCategory.migration);
+}
+
+class SearchIndexFailure extends Failure {
+  SearchIndexFailure(
+    super.message, {
+    required super.code,
+    super.severity = FailureSeverity.warning,
+    super.retryable = true,
+    super.correlationId,
+  }) : super(category: FailureCategory.searchIndex);
 }

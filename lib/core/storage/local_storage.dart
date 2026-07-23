@@ -58,7 +58,7 @@ class LocalStorage {
   static bool _initialized = false;
   static bool _clearing = false;
 
-  static const currentSchemaVersion = 2;
+  static const currentSchemaVersion = 3;
   static const _schemaVersionKey = 'storage_schema_version';
 
   static const settingsBox = 'settings';
@@ -73,6 +73,10 @@ class LocalStorage {
   static const markdownFilesBox = 'markdown_files';
   static const vaultNotesBox = 'vault_notes';
   static const vaultMetadataBox = 'vault_metadata';
+  static const workspacesBox = 'developer_workspaces';
+  static const workspaceMetadataBox = 'workspace_metadata';
+  static const workspaceIndexBox = 'workspace_index';
+  static const activityLogBox = 'activity_log';
   static const storageMetaBox = 'storage_meta';
   static const quarantineBox = 'storage_quarantine';
   static const importRollbackBox = 'storage_import_rollback';
@@ -90,6 +94,10 @@ class LocalStorage {
     markdownFilesBox,
     vaultNotesBox,
     vaultMetadataBox,
+    workspacesBox,
+    workspaceMetadataBox,
+    workspaceIndexBox,
+    activityLogBox,
   ];
 
   static const internalBoxes = <String>[
@@ -413,6 +421,8 @@ class LocalStorage {
       });
       await _injectFault('migration_before_step', storageMetaBox, next);
       // Versions 1 and 2 establish the registry and protected-secret boundary.
+      // Version 3 adds only empty workspace/index/activity registries. Source
+      // files and existing feature records are never moved or deleted.
       // Feature-specific legacy secret migration occurs atomically when API
       // workspaces are first loaded because it requires the typed model.
       await meta.put(_schemaVersionKey, next);
@@ -430,6 +440,10 @@ class LocalStorage {
       case apiWorkspaceReportsBox:
       case snippetsBox:
       case vaultNotesBox:
+      case workspacesBox:
+      case workspaceMetadataBox:
+      case workspaceIndexBox:
+      case activityLogBox:
       case quarantineBox:
       case importRollbackBox:
         return openBox<Map>(name);

@@ -21,12 +21,41 @@ import '../features/diff_checker/presentation/diff_page.dart';
 import '../features/snippets/presentation/snippets_page.dart';
 import '../features/settings/presentation/settings_page.dart';
 import '../features/privacy/presentation/privacy_policy_page.dart';
+import '../features/workspaces/presentation/workspaces_page.dart';
+import '../features/knowledge/presentation/knowledge_workspace_page.dart';
+import '../features/okf/presentation/okf_dashboard_page.dart';
+import '../features/openapi/presentation/openapi_page.dart';
+import '../features/search/presentation/unified_search_page.dart';
 
 /// Generates routes for the application.
 Route<dynamic> generateRoute(RouteSettings settings) {
   switch (settings.name) {
     case '/dashboard':
       return MaterialPageRoute(builder: (_) => const DashboardPage());
+    case '/workspaces':
+      return MaterialPageRoute(builder: (_) => const WorkspacesPage());
+    case '/knowledge':
+      final workspaceId =
+          settings.arguments is String ? settings.arguments! as String : null;
+      if (workspaceId == null || workspaceId.trim().isEmpty) {
+        return _notFoundRoute('No workspace was selected.');
+      }
+      return MaterialPageRoute(
+        builder: (_) => KnowledgeWorkspacePage(workspaceId: workspaceId),
+      );
+    case '/okf':
+      final workspaceId =
+          settings.arguments is String ? settings.arguments! as String : null;
+      if (workspaceId == null || workspaceId.trim().isEmpty) {
+        return _notFoundRoute('No workspace was selected.');
+      }
+      return MaterialPageRoute(
+        builder: (_) => OkfDashboardPage(workspaceId: workspaceId),
+      );
+    case '/openapi':
+      return MaterialPageRoute(builder: (_) => const OpenApiPage());
+    case '/search':
+      return MaterialPageRoute(builder: (_) => const UnifiedSearchPage());
     case '/favourites':
       return MaterialPageRoute(builder: (_) => const FavouritesPage());
     case '/recent':

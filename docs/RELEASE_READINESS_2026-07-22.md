@@ -28,7 +28,7 @@ Commerce remains disabled. No purchase button is available, no billing platform 
 
 `build/release/devdesk-windows-x64-1.0.0.zip`
 
-SHA-256: `BE1970A31290CB67A90AE0BB6EF79C3495FC98B35B5FE2453917900DDCA8148C`
+SHA-256: `267C6F2AAABADC17375F12A82298C5212F7A92947A1BB34A3831950BB9A83CA6`
 
 The ZIP includes the executable, Flutter runtime, native plugins and current compiled Dart data. Do not distribute `devdesk.exe` by itself. This ZIP is unsigned and is not a public release artifact.
 
@@ -36,7 +36,7 @@ The ZIP includes the executable, Flutter runtime, native plugins and current com
 
 `build/app/outputs/flutter-apk/app-debug.apk`
 
-SHA-256: `83EADDD771614C86292D7EBB452C4F2234DB827AFDC3FC1B78086C2E18182F8C`
+SHA-256: `266D890C9E4AE74401EC72EB2BBB7DC7702FE214C85BBD1758DCD31751D8AE10`
 
 This APK is for device QA only and must not be uploaded as a production release.
 

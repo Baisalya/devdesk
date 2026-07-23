@@ -19,6 +19,13 @@ class DevTool {
 /// dashboard UI and can be extended with new utilities.
 const List<DevTool> tools = [
   DevTool(
+    name: 'Developer Workspaces',
+    route: '/workspaces',
+    icon: Icons.workspaces_outline,
+    description:
+        'Open local project folders without giving up ownership of your files.',
+  ),
+  DevTool(
     name: 'Markdown Vault',
     route: '/vault',
     icon: Icons.folder_copy,
@@ -47,6 +54,18 @@ const List<DevTool> tools = [
     route: '/api',
     icon: Icons.api,
     description: 'Manage offline API workspaces, collections and runners.',
+  ),
+  DevTool(
+    name: 'OpenAPI Studio',
+    route: '/openapi',
+    icon: Icons.schema,
+    description: 'Validate OpenAPI 3.x and generate API collections.',
+  ),
+  DevTool(
+    name: 'Unified Search',
+    route: '/search',
+    icon: Icons.manage_search,
+    description: 'Search local workspace and API metadata in one place.',
   ),
   DevTool(
     name: 'JWT Decoder',

@@ -1,6 +1,8 @@
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:xml/xml.dart';
+import 'package:yaml/yaml.dart';
 
 import '../../../core/errors/failure.dart';
 import '../../../core/network/bounded_http.dart';
@@ -97,19 +99,76 @@ class ApiWorkspaceExecutor {
               retryable: false,
             );
           }
-          request.body = raw;
         }
-        request.headers.putIfAbsent(
-          'Content-Type',
-          () => 'application/json; charset=utf-8',
+        _putContentTypeIfAbsent(
+          request.headers,
+          'application/json; charset=utf-8',
         );
+        request.body = raw;
         break;
       case ApiRequestBodyType.rawText:
+        _putContentTypeIfAbsent(request.headers, 'text/plain; charset=utf-8');
         request.body = prepared.body ?? '';
-        request.headers.putIfAbsent(
-          'Content-Type',
-          () => 'text/plain; charset=utf-8',
+        break;
+      case ApiRequestBodyType.rawXml:
+        final raw = prepared.body ?? '';
+        if (raw.isNotEmpty) {
+          try {
+            XmlDocument.parse(raw);
+          } on XmlParserException {
+            throw ApiFailure(
+              'XML request body is not valid XML.',
+              code: 'DD-API-BODY-XML',
+              category: FailureCategory.validation,
+              retryable: false,
+            );
+          }
+        }
+        _putContentTypeIfAbsent(
+          request.headers,
+          'application/xml; charset=utf-8',
         );
+        request.body = raw;
+        break;
+      case ApiRequestBodyType.rawHtml:
+        _putContentTypeIfAbsent(request.headers, 'text/html; charset=utf-8');
+        request.body = prepared.body ?? '';
+        break;
+      case ApiRequestBodyType.rawYaml:
+        final raw = prepared.body ?? '';
+        if (raw.isNotEmpty) {
+          try {
+            loadYaml(raw);
+          } on YamlException {
+            throw ApiFailure(
+              'YAML request body is not valid YAML.',
+              code: 'DD-API-BODY-YAML',
+              category: FailureCategory.validation,
+              retryable: false,
+            );
+          }
+        }
+        _putContentTypeIfAbsent(
+          request.headers,
+          'application/yaml; charset=utf-8',
+        );
+        request.body = raw;
+        break;
+      case ApiRequestBodyType.graphql:
+        final raw = prepared.body ?? '';
+        if (!_balancedGraphQl(raw)) {
+          throw ApiFailure(
+            'GraphQL query has unbalanced braces.',
+            code: 'DD-API-BODY-GRAPHQL',
+            category: FailureCategory.validation,
+            retryable: false,
+          );
+        }
+        _putContentTypeIfAbsent(
+          request.headers,
+          'application/json; charset=utf-8',
+        );
+        request.body = jsonEncode({'query': raw});
         break;
       case ApiRequestBodyType.formUrlEncoded:
         request.bodyFields = prepared.formFields;
@@ -118,6 +177,45 @@ class ApiWorkspaceExecutor {
         throw StateError('Multipart requests are prepared above.');
     }
     return request;
+  }
+
+  static void _putContentTypeIfAbsent(
+    Map<String, String> headers,
+    String value,
+  ) {
+    final hasContentType = headers.keys.any(
+      (key) => key.toLowerCase() == 'content-type',
+    );
+    if (!hasContentType) headers['Content-Type'] = value;
+  }
+
+  static bool _balancedGraphQl(String source) {
+    var braces = 0;
+    var parentheses = 0;
+    var inString = false;
+    var escaped = false;
+    for (final rune in source.runes) {
+      final character = String.fromCharCode(rune);
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+      if (character == '\\' && inString) {
+        escaped = true;
+        continue;
+      }
+      if (character == '"') {
+        inString = !inString;
+        continue;
+      }
+      if (inString) continue;
+      if (character == '{') braces++;
+      if (character == '}') braces--;
+      if (character == '(') parentheses++;
+      if (character == ')') parentheses--;
+      if (braces < 0 || parentheses < 0) return false;
+    }
+    return !inString && braces == 0 && parentheses == 0;
   }
 
   static Uri _buildUri(ApiPreparedRequest prepared) {

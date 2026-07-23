@@ -16,6 +16,7 @@ import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/app_empty_state.dart';
 import '../../../core/widgets/safe_markdown_image.dart';
 import '../../../core/widgets/app_editor_panel.dart';
+import '../../../core/widgets/app_input_dialog.dart';
 import '../provider/markdown_provider.dart';
 
 /// Page allowing the user to edit and preview markdown files.
@@ -360,34 +361,15 @@ class _MarkdownPageState extends ConsumerState<MarkdownPage>
     required String title,
     String initialValue = '',
   }) {
-    final filenameController = TextEditingController(text: initialValue);
     return showDialog<String>(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text(title),
-          content: TextField(
-            controller: filenameController,
-            decoration: const InputDecoration(
-              hintText: 'notes.md',
-              labelText: 'File name',
-            ),
-            autofocus: true,
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.of(context).pop(filenameController.text.trim());
-              },
-              child: const Text('Save'),
-            ),
-          ],
-        );
-      },
+      builder: (context) => AppTextInputDialog(
+        title: title,
+        labelText: 'File name',
+        hintText: 'notes.md',
+        initialValue: initialValue,
+        actionLabel: 'Save',
+      ),
     );
   }
 

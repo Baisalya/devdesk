@@ -20,6 +20,7 @@ import '../../../core/widgets/app_loading_state.dart';
 import '../models/api_environment.dart';
 import '../models/api_variable.dart';
 import '../models/api_workspace_models.dart';
+import '../../../core/widgets/app_input_dialog.dart';
 import '../provider/api_workspace_provider.dart';
 import '../utils/api_workspace_executor.dart';
 import '../utils/api_workspace_utils.dart';
@@ -96,92 +97,37 @@ class _ApiWorkspacesPageState extends ConsumerState<ApiWorkspacesPage> {
   }
 
   Future<void> _showCreateWorkspaceDialog() async {
-    final name = TextEditingController();
-    final description = TextEditingController();
-    final created = await showDialog<bool>(
+    final name = await showDialog<String>(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Create API workspace'),
-          content: SizedBox(
-            width: 420,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: name,
-                  autofocus: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Workspace name',
-                    hintText: 'My Shopping App',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                TextField(
-                  controller: description,
-                  decoration: const InputDecoration(
-                    labelText: 'Description',
-                    border: OutlineInputBorder(),
-                  ),
-                  maxLines: 3,
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Create'),
-            ),
-          ],
-        );
-      },
+      builder: (context) => const AppTextInputDialog(
+        title: 'Create API workspace',
+        labelText: 'Workspace name',
+        hintText: 'My Shopping App',
+        actionLabel: 'Create',
+      ),
     );
-    if (created == true) {
+    if (name != null) {
       await ref.read(apiWorkspaceProvider.notifier).createWorkspace(
-            name: name.text,
-            description: description.text,
+            name: name,
+            description: '',
           );
     }
   }
 
   Future<void> _showRenameWorkspaceDialog(ApiWorkspace workspace) async {
-    final name = TextEditingController(text: workspace.name);
-    final renamed = await showDialog<bool>(
+    final name = await showDialog<String>(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Rename workspace'),
-          content: TextField(
-            controller: name,
-            autofocus: true,
-            decoration: const InputDecoration(
-              labelText: 'Workspace name',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Rename'),
-            ),
-          ],
-        );
-      },
+      builder: (context) => AppTextInputDialog(
+        title: 'Rename workspace',
+        labelText: 'Workspace name',
+        initialValue: workspace.name,
+        actionLabel: 'Rename',
+      ),
     );
-    if (renamed == true) {
+    if (name != null) {
       await ref
           .read(apiWorkspaceProvider.notifier)
-          .renameWorkspace(workspace.id, name.text);
+          .renameWorkspace(workspace.id, name);
     }
   }
 
@@ -3754,6 +3700,10 @@ String _bodyTypeLabel(ApiRequestBodyType type) {
     ApiRequestBodyType.none => 'None',
     ApiRequestBodyType.rawJson => 'Raw JSON',
     ApiRequestBodyType.rawText => 'Raw text',
+    ApiRequestBodyType.rawXml => 'XML',
+    ApiRequestBodyType.rawHtml => 'HTML',
+    ApiRequestBodyType.rawYaml => 'YAML',
+    ApiRequestBodyType.graphql => 'GraphQL',
     ApiRequestBodyType.formUrlEncoded => 'Form URL encoded',
     ApiRequestBodyType.multipartFormData => 'Multipart form-data',
   };

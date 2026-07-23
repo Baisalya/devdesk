@@ -27,6 +27,7 @@ import 'package:devdesk/features/snippets/presentation/snippets_page.dart';
 import 'package:devdesk/features/timestamp_tool/presentation/timestamp_page.dart';
 import 'package:devdesk/features/url_tool/presentation/url_page.dart';
 import 'package:devdesk/features/uuid_tool/presentation/uuid_page.dart';
+import 'package:devdesk/features/workspaces/presentation/workspaces_page.dart';
 
 void main() {
   late Directory storageDirectory;
@@ -55,6 +56,7 @@ void main() {
 
   final pages = <String, Widget Function()>{
     'dashboard': DashboardPage.new,
+    'workspaces': WorkspacesPage.new,
     'favourites': FavouritesPage.new,
     'recent': RecentPage.new,
     'vault': VaultPage.new,
