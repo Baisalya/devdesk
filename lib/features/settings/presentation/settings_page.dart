@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:url_launcher/url_launcher.dart';
+
 import '../../../app/theme/app_palette.dart';
 import '../../../app/theme/devdesk_semantic_colors.dart';
 import '../../../app/theme/theme_controller.dart';
@@ -25,6 +27,7 @@ import '../../dashboard/provider/tool_providers.dart';
 import '../../markdown/provider/markdown_provider.dart';
 import '../../markdown/vault/provider/vault_provider.dart';
 import '../../pro/presentation/plan_status_card.dart';
+import '../../privacy/domain/privacy_policy.dart';
 import '../../privacy/presentation/privacy_policy_page.dart';
 import '../../privacy/provider/privacy_acceptance_provider.dart';
 import '../../rating/provider/rating_service.dart';
@@ -158,6 +161,19 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 onTap: _showPrivacy,
               ),
               _SettingsTile(
+                icon: Icons.help_outline_rounded,
+                title: 'Privacy Question',
+                subtitle: 'Ask a general question in the public support repo.',
+                onTap: () => _launchSupportUrl(DevDeskPrivacyPolicy.supportUrl),
+              ),
+              _SettingsTile(
+                icon: Icons.security_rounded,
+                title: 'Security Report',
+                subtitle: 'Privately report a potential vulnerability.',
+                onTap: () =>
+                    _launchSupportUrl(DevDeskPrivacyPolicy.securityUrl),
+              ),
+              _SettingsTile(
                 icon: Icons.delete_forever,
                 title: 'Clear All Data',
                 subtitle: 'Deletes all stored notes, API history and settings.',
@@ -180,6 +196,19 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                     await ratingService.showRateDialog(context);
                   },
                 ),
+              _SettingsTile(
+                icon: Icons.support_agent_rounded,
+                title: 'DevDesk Support',
+                subtitle: 'Open the public support homepage.',
+                onTap: () =>
+                    _launchSupportUrl(DevDeskPrivacyPolicy.supportHomeUrl),
+              ),
+              _SettingsTile(
+                icon: Icons.bug_report_rounded,
+                title: 'Report a Bug',
+                subtitle: 'Help us improve by reporting reproducible issues.',
+                onTap: () => _launchSupportUrl(DevDeskPrivacyPolicy.supportUrl),
+              ),
               _SettingsTile(
                 icon: Icons.info,
                 title: 'About DevDesk',
@@ -418,6 +447,19 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       ..invalidate(snippetsSearchProvider)
       ..invalidate(themePreferencesProvider)
       ..invalidate(privacyAcceptanceProvider);
+  }
+
+  Future<void> _launchSupportUrl(String url) async {
+    final uri = Uri.parse(url);
+    try {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        _showSnack('Could not open the support page.');
+      }
+    } catch (e) {
+      _showSnack('An error occurred while opening the support page.');
+    }
   }
 
   void _showPrivacy() {

@@ -16,12 +16,19 @@ class PrivacyPolicySection {
 /// `docs/privacy-policy.html`. Increment [version] whenever a material change
 /// should require users to acknowledge the notice again.
 abstract final class DevDeskPrivacyPolicy {
-  static const String version = '2026-07-22';
-  static const String effectiveDate = '22 July 2026';
+  static const String version = '2026-07-24';
+  static const String effectiveDate = '24 July 2026';
   static const String developerName = 'Baisalya';
-  static const String repositoryUrl = 'https://github.com/Baisalya/devdesk';
-  static const String supportUrl = '$repositoryUrl/issues';
-  static const String securityUrl = '$repositoryUrl/security/advisories/new';
+  static const String repositoryUrl =
+      'https://github.com/Baisalya/devdesk-support';
+  static const String supportUrl =
+      'https://github.com/Baisalya/devdesk-support/issues/new/choose';
+  static const String securityUrl =
+      'https://github.com/Baisalya/devdesk-support/security/advisories/new';
+  static const String supportHomeUrl =
+      'https://baisalya.github.io/devdesk-support/';
+  static const String privacyPolicyUrl =
+      'https://baisalya.github.io/devdesk-support/privacy-policy.html';
 
   static const List<String> gateSummary = [
     'DevDesk has no account, advertising, analytics, telemetry, cloud sync, or DevDesk-operated backend.',
