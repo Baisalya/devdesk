@@ -18,6 +18,7 @@ import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/app_empty_state.dart';
 import '../../../core/widgets/app_error_state.dart';
 import '../../../core/widgets/app_loading_state.dart';
+import '../../../core/widgets/app_tool_app_bar.dart';
 import '../models/api_history_entry.dart';
 import '../models/api_request.dart';
 import '../../diff_checker/presentation/diff_page.dart';
@@ -86,8 +87,9 @@ class _ApiPageState extends ConsumerState<ApiPage> {
     final error = ref.watch(apiErrorProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('API Tester'),
+      appBar: AppToolAppBar(
+        route: '/api',
+        title: 'API Quick-Tester',
         actions: [
           IconButton(
             icon: const Icon(Icons.upload_file),

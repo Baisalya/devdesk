@@ -9,6 +9,7 @@ import '../../../core/design/app_typography.dart';
 import '../../../core/widgets/app_badge.dart';
 import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/app_empty_state.dart';
+import '../../../core/widgets/app_tool_app_bar.dart';
 import '../../../core/widgets/app_responsive_scaffold.dart';
 import '../../../core/files/external_file_service.dart';
 import '../../../core/security/data_redactor.dart';
@@ -156,8 +157,8 @@ class _DiffPageState extends ConsumerState<DiffPage>
     );
 
     return AppResponsiveScaffold(
-      appBar: AppBar(
-        title: const Text('Diff Workspace'),
+      appBar: AppToolAppBar(
+        route: '/diff',
         actions: [
           IconButton(
             icon: const Icon(Icons.settings),

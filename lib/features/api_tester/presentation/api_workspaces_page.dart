@@ -21,6 +21,7 @@ import '../models/api_environment.dart';
 import '../models/api_variable.dart';
 import '../models/api_workspace_models.dart';
 import '../../../core/widgets/app_input_dialog.dart';
+import '../../../core/widgets/app_tool_app_bar.dart';
 import '../provider/api_workspace_provider.dart';
 import '../utils/api_workspace_executor.dart';
 import '../utils/api_workspace_utils.dart';
@@ -465,8 +466,8 @@ class _WorkspaceDashboard extends ConsumerWidget {
     final compactActions = MediaQuery.sizeOf(context).width < 600 ||
         MediaQuery.textScalerOf(context).scale(1) > 1.4;
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('API Workspaces'),
+      appBar: AppToolAppBar(
+        route: '/api',
         actions: [
           if (compactActions)
             PopupMenuButton<String>(
@@ -845,21 +846,26 @@ class _WorkspaceDetail extends ConsumerWidget {
       child: Focus(
         autofocus: true,
         child: Scaffold(
-          appBar: AppBar(
+          appBar: AppToolAppBar(
+            route: '/api',
             leading: IconButton(
               icon: const Icon(Icons.arrow_back),
               tooltip: 'Back to workspaces',
               onPressed: onBack,
             ),
-            title: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(workspace.name),
-                Text(
+            title: workspace.name,
+            bottom: PreferredSize(
+              preferredSize: const Size.fromHeight(24),
+              child: Container(
+                alignment: Alignment.centerLeft,
+                padding: const EdgeInsets.only(left: 72, bottom: 8),
+                child: Text(
                   workspace.activeEnvironment?.name ?? 'No environment',
-                  style: Theme.of(context).textTheme.bodySmall,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
                 ),
-              ],
+              ),
             ),
             actions: [
               TextButton.icon(

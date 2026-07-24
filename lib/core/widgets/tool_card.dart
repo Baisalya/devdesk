@@ -54,17 +54,14 @@ class ToolCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
-                  if (!dense) ...[
-                    const SizedBox(height: 3),
-                    Text(
-                      tool.description,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: scheme.onSurfaceVariant,
-                          ),
-                    ),
-                  ],
+                  const SizedBox(height: 3),
+                  Text(
+                    tool.description,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                          fontSize: dense ? 11 : 12,
+                        ),
+                  ),
                 ],
               ),
             ),

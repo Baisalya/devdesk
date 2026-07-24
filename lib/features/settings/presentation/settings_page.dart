@@ -15,6 +15,7 @@ import '../../../core/files/external_file_service.dart';
 import '../../../core/security/data_redactor.dart';
 import '../../../core/security/safe_clipboard.dart';
 import '../../../core/storage/backup_utils.dart';
+import '../../../core/widgets/app_tool_app_bar.dart';
 import '../../../core/storage/local_storage.dart';
 import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/app_section_header.dart';
@@ -58,7 +59,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     final appearance = ref.watch(themePreferencesProvider);
     final ratingService = ref.read(ratingServiceProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('Settings')),
+      appBar: const AppToolAppBar(route: '/settings'),
       body: ListView(
         padding: AppSpacing.page(context),
         children: [

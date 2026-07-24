@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../api_tester/provider/api_workspace_provider.dart';
+import '../../../core/widgets/app_tool_app_bar.dart';
 import '../data/local_openapi_service.dart';
 import '../domain/openapi_models.dart';
 
@@ -72,8 +73,8 @@ paths:
   Widget build(BuildContext context) {
     final document = _document;
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('OpenAPI Studio'),
+      appBar: AppToolAppBar(
+        route: '/openapi',
         actions: [
           TextButton.icon(
             onPressed: document == null ? null : _importCollection,

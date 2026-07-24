@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/design/app_breakpoints.dart';
 import '../../../core/design/app_spacing.dart';
 import '../../../core/widgets/app_card.dart';
+import '../../../core/widgets/app_tool_app_bar.dart';
 import '../../../core/widgets/app_result_panel.dart';
 import '../provider/url_provider.dart';
 
@@ -42,7 +43,7 @@ class _UrlPageState extends ConsumerState<UrlPage> {
   Widget build(BuildContext context) {
     final output = ref.watch(urlOutputProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('URL Encoder/Decoder')),
+      appBar: const AppToolAppBar(route: '/url'),
       body: LayoutBuilder(
         builder: (context, constraints) {
           final isWide = constraints.maxWidth >= AppBreakpoints.medium;

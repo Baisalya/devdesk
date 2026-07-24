@@ -6,6 +6,7 @@ import '../../../core/design/app_breakpoints.dart';
 import '../../../core/design/app_spacing.dart';
 import '../../../core/design/app_typography.dart';
 import '../../../core/widgets/app_card.dart';
+import '../../../core/widgets/app_tool_app_bar.dart';
 import '../../../core/widgets/app_empty_state.dart';
 import '../provider/uuid_provider.dart';
 
@@ -38,7 +39,7 @@ class _UuidPageState extends ConsumerState<UuidPage> {
   Widget build(BuildContext context) {
     final uuids = ref.watch(uuidListProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('UUID Generator')),
+      appBar: const AppToolAppBar(route: '/uuid'),
       body: LayoutBuilder(
         builder: (context, constraints) {
           final isWide = constraints.maxWidth >= AppBreakpoints.medium;

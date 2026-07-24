@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/design/app_breakpoints.dart';
 import '../../../core/design/app_colors.dart';
 import '../../../core/design/app_spacing.dart';
+import '../../../core/widgets/app_tool_app_bar.dart';
 import '../../../core/design/app_typography.dart';
 import '../../../core/files/external_file_service.dart';
 import '../../../core/security/safe_clipboard.dart';
@@ -191,9 +192,7 @@ class _ReadmeGeneratorPageState extends ConsumerState<ReadmeGeneratorPage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('README Generator'),
-      ),
+      appBar: const AppToolAppBar(route: '/readme'),
       body: LayoutBuilder(
         builder: (context, constraints) {
           final isWide = constraints.maxWidth >= AppBreakpoints.medium;

@@ -11,6 +11,7 @@ import '../../../core/security/safe_clipboard.dart';
 import '../../../core/utils/json_utils.dart';
 import '../../../core/widgets/app_editor_panel.dart';
 import '../../../core/widgets/app_error_state.dart';
+import '../../../core/widgets/app_tool_app_bar.dart';
 import '../provider/json_provider.dart';
 
 /// Page for viewing, validating and formatting JSON.
@@ -99,7 +100,10 @@ class _JsonPageState extends ConsumerState<JsonPage> {
     }
 
     return Scaffold(
-      appBar: AppBar(title: Text(_externalDocument?.name ?? 'JSON Tools')),
+      appBar: AppToolAppBar(
+        route: '/json',
+        title: _externalDocument?.name,
+      ),
       body: Column(
         children: [
           if (_externalDocument != null)

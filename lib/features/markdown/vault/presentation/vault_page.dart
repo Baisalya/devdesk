@@ -10,6 +10,7 @@ import '../../../../core/design/app_spacing.dart';
 import '../../../../core/files/external_file.dart';
 import '../../../../core/files/external_file_service.dart';
 import '../../../../core/widgets/app_empty_state.dart';
+import '../../../../core/widgets/app_tool_app_bar.dart';
 import '../model/vault_note.dart';
 import '../provider/vault_export_service.dart';
 import '../provider/vault_provider.dart';
@@ -58,8 +59,8 @@ class _VaultPageState extends ConsumerState<VaultPage> {
       },
       child: Scaffold(
         key: _scaffoldKey,
-        appBar: AppBar(
-          title: const Text('Markdown Vault'),
+        appBar: AppToolAppBar(
+          route: '/vault',
           leading: isCompact && !distractionFree
               ? IconButton(
                   icon: const Icon(Icons.menu),

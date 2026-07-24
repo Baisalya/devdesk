@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/widgets/app_tool_app_bar.dart';
 import '../../api_tester/models/api_workspace_models.dart';
 import '../../api_tester/provider/api_workspace_provider.dart';
 import '../../workspaces/provider/workspace_provider.dart';
@@ -28,7 +29,7 @@ class _UnifiedSearchPageState extends ConsumerState<UnifiedSearchPage> {
     final records = _records();
     final hits = UnifiedSearchIndex(records).search(_query);
     return Scaffold(
-      appBar: AppBar(title: const Text('Unified Search')),
+      appBar: const AppToolAppBar(route: '/search'),
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 1000),

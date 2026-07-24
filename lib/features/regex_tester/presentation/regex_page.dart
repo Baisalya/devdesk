@@ -8,6 +8,7 @@ import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/app_empty_state.dart';
 import '../../../core/widgets/app_error_state.dart';
 import '../../../core/widgets/app_loading_state.dart';
+import '../../../core/widgets/app_tool_app_bar.dart';
 import '../provider/regex_provider.dart';
 
 /// Page for testing regular expressions against sample text.
@@ -53,7 +54,7 @@ class _RegexPageState extends ConsumerState<RegexPage> {
     final result = ref.watch(regexResultProvider);
     final matches = result.valueOrNull ?? [];
     return Scaffold(
-      appBar: AppBar(title: const Text('Regex Tester')),
+      appBar: const AppToolAppBar(route: '/regex'),
       body: LayoutBuilder(
         builder: (context, constraints) {
           final isWide = constraints.maxWidth >= AppBreakpoints.medium;

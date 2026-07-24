@@ -35,14 +35,7 @@ class ToolGrid extends StatelessWidget {
                 : width >= AppBreakpoints.compact
                     ? 2
                     : 1;
-        final textScale = MediaQuery.textScalerOf(context).scale(1);
         final narrow = AppBreakpoints.isNarrow(width);
-        final mainAxisExtent = switch (crossAxisCount) {
-          1 when narrow => 72.0 + ((textScale - 1).clamp(0, 1) * 24),
-          1 => 104.0 + ((textScale - 1).clamp(0, 1) * 36),
-          2 => 120.0 + ((textScale - 1).clamp(0, 1) * 36),
-          _ => 104.0 + ((textScale - 1).clamp(0, 1) * 24),
-        };
         return GridView.builder(
           shrinkWrap: shrinkWrap,
           physics: physics,
@@ -51,7 +44,13 @@ class ToolGrid extends StatelessWidget {
             crossAxisCount: crossAxisCount,
             crossAxisSpacing: AppSpacing.md,
             mainAxisSpacing: AppSpacing.md,
-            mainAxisExtent: mainAxisExtent,
+            mainAxisExtent: null, // Allow cards to grow based on content
+            childAspectRatio: switch (crossAxisCount) {
+              1 => narrow ? 3.5 : 4.5,
+              2 => 2.5,
+              3 => 2.0,
+              _ => 1.8,
+            },
           ),
           itemBuilder: (context, index) {
             final tool = tools[index];

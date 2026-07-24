@@ -10,6 +10,7 @@ import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/app_empty_state.dart';
 import '../../../core/widgets/app_error_state.dart';
 import '../../../core/widgets/app_loading_state.dart';
+import '../../../core/widgets/app_tool_app_bar.dart';
 import '../models/snippet.dart';
 import '../provider/snippets_provider.dart';
 
@@ -22,9 +23,7 @@ class SnippetsPage extends ConsumerWidget {
     final snippetsAsync = ref.watch(snippetsProvider);
     final search = ref.watch(snippetsSearchProvider);
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Snippets/Notes'),
-      ),
+      appBar: const AppToolAppBar(route: '/snippets'),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showSnippetEditor(context, ref),
         child: const Icon(Icons.add),

@@ -17,6 +17,7 @@ import '../../../core/widgets/app_empty_state.dart';
 import '../../../core/widgets/safe_markdown_image.dart';
 import '../../../core/widgets/app_editor_panel.dart';
 import '../../../core/widgets/app_input_dialog.dart';
+import '../../../core/widgets/app_tool_app_bar.dart';
 import '../provider/markdown_provider.dart';
 
 /// Page allowing the user to edit and preview markdown files.
@@ -416,10 +417,9 @@ class _MarkdownPageState extends ConsumerState<MarkdownPage>
           }
         },
         child: Scaffold(
-          appBar: AppBar(
-            title: Text(
-              _externalDocument?.name ?? _currentFileName ?? 'Markdown Editor',
-            ),
+          appBar: AppToolAppBar(
+            route: '/markdown',
+            title: _externalDocument?.name ?? _currentFileName,
             actions: [
               IconButton(
                 icon: const Icon(Icons.note_add),

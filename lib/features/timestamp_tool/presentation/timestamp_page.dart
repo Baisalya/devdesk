@@ -5,6 +5,7 @@ import '../../../core/design/app_breakpoints.dart';
 import '../../../core/design/app_spacing.dart';
 import '../../../core/widgets/app_badge.dart';
 import '../../../core/widgets/app_card.dart';
+import '../../../core/widgets/app_tool_app_bar.dart';
 import '../../../core/widgets/app_result_panel.dart';
 import '../provider/timestamp_provider.dart';
 
@@ -40,7 +41,7 @@ class _TimestampPageState extends ConsumerState<TimestampPage> {
     final result = ref.watch(timestampResultProvider);
     final dateTime = ref.watch(dateTimeProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('Timestamp Converter')),
+      appBar: const AppToolAppBar(route: '/timestamp'),
       body: LayoutBuilder(
         builder: (context, constraints) {
           final isWide = constraints.maxWidth >= AppBreakpoints.medium;

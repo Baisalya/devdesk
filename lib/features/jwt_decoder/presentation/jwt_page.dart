@@ -11,6 +11,7 @@ import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/app_empty_state.dart';
 import '../../../core/widgets/app_error_state.dart';
 import '../../../core/widgets/app_loading_state.dart';
+import '../../../core/widgets/app_tool_app_bar.dart';
 import '../provider/jwt_provider.dart';
 
 /// Page for decoding JSON Web Tokens locally.
@@ -88,7 +89,7 @@ class _JwtPageState extends ConsumerState<JwtPage> {
       error: (err, stack) => AppErrorState(message: err.toString()),
     );
     return Scaffold(
-      appBar: AppBar(title: const Text('JWT Decoder')),
+      appBar: const AppToolAppBar(route: '/jwt'),
       body: LayoutBuilder(
         builder: (context, constraints) {
           final compact = constraints.maxHeight < 500 ||

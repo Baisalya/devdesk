@@ -8,6 +8,7 @@ import '../../../core/widgets/app_empty_state.dart';
 import '../../../core/widgets/app_error_state.dart';
 import '../../../core/widgets/app_loading_state.dart';
 import '../../../core/widgets/app_input_dialog.dart';
+import '../../../core/widgets/app_tool_app_bar.dart';
 import '../domain/workspace_models.dart';
 import '../provider/workspace_provider.dart';
 
@@ -39,8 +40,8 @@ class _WorkspacesPageState extends ConsumerState<WorkspacesPage> {
     }).toList(growable: false);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Workspaces'),
+      appBar: AppToolAppBar(
+        route: '/workspaces',
         actions: [
           IconButton(
             tooltip: 'Refresh workspaces',

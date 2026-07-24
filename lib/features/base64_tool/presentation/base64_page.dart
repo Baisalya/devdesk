@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/design/app_breakpoints.dart';
 import '../../../core/design/app_spacing.dart';
 import '../../../core/widgets/app_card.dart';
+import '../../../core/widgets/app_tool_app_bar.dart';
 import '../../../core/widgets/app_result_panel.dart';
 import '../provider/base64_provider.dart';
 
@@ -43,7 +44,7 @@ class _Base64PageState extends ConsumerState<Base64Page> {
   Widget build(BuildContext context) {
     final output = ref.watch(base64OutputProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('Base64 Tool')),
+      appBar: const AppToolAppBar(route: '/base64'),
       body: LayoutBuilder(
         builder: (context, constraints) {
           final isWide = constraints.maxWidth >= AppBreakpoints.medium;
