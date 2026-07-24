@@ -55,7 +55,7 @@ const List<DevTool> tools = [
     name: 'API Workspaces',
     route: '/api',
     icon: Icons.api,
-    description: 'Postman-like workspace for testing and saving HTTP requests.',
+    description: 'Build, save, test, and organize HTTP requests and responses.',
   ),
   DevTool(
     name: 'OpenAPI Studio',

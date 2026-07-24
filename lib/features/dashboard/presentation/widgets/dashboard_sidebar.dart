@@ -41,10 +41,10 @@ class DashboardSidebar extends StatelessWidget {
                     color: scheme.primary,
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Icon(
-                    Icons.developer_mode_rounded,
-                    color: scheme.onPrimary,
-                    size: 24,
+                  padding: const EdgeInsets.all(6),
+                  child: Image.asset(
+                    'assets/DEVDESK.png',
+                    fit: BoxFit.contain,
                   ),
                 ),
                 const SizedBox(width: AppSpacing.md),
