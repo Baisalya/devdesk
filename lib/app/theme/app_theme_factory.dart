@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/design/app_radius.dart';
 import '../../core/design/app_spacing.dart';
 import 'app_palette.dart';
+import '../../features/dashboard/presentation/widgets/dashboard_theme_extension.dart';
 import 'devdesk_semantic_colors.dart';
 import 'theme_preferences.dart';
 
@@ -222,6 +223,7 @@ class AppThemeFactory {
           scheme,
           highContrast: highContrast,
         ),
+        DashboardThemeExtension.fromBrightness(brightness, scheme),
       ],
     );
   }

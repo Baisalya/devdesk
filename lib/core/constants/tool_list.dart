@@ -29,7 +29,8 @@ const List<DevTool> tools = [
     name: 'Markdown Vault',
     route: '/vault',
     icon: Icons.folder_copy,
-    description: 'A personal wiki for your notes with backlinks and file explorer.',
+    description:
+        'A personal wiki for your notes with backlinks and file explorer.',
   ),
   DevTool(
     name: 'Markdown Editor',
@@ -41,7 +42,8 @@ const List<DevTool> tools = [
     name: 'README Generator',
     route: '/readme',
     icon: Icons.assignment,
-    description: 'Interactive wizard to build professional GitHub README files.',
+    description:
+        'Interactive wizard to build professional GitHub README files.',
   ),
   DevTool(
     name: 'JSON Tools',
@@ -59,25 +61,29 @@ const List<DevTool> tools = [
     name: 'OpenAPI Studio',
     route: '/openapi',
     icon: Icons.schema,
-    description: 'Load Swagger/OpenAPI specs to test endpoints and generate collections.',
+    description:
+        'Load Swagger/OpenAPI specs to test endpoints and generate collections.',
   ),
   DevTool(
     name: 'Unified Search',
     route: '/search',
     icon: Icons.manage_search,
-    description: 'One search bar to find files across all your local workspaces.',
+    description:
+        'One search bar to find files across all your local workspaces.',
   ),
   DevTool(
     name: 'JWT Decoder',
     route: '/jwt',
     icon: Icons.lock_open,
-    description: 'Safely decode and inspect JSON Web Tokens without sending them online.',
+    description:
+        'Safely decode and inspect JSON Web Tokens without sending them online.',
   ),
   DevTool(
     name: 'Regex Tester',
     route: '/regex',
     icon: Icons.code,
-    description: 'Live testing tool for regular expressions with match highlighting.',
+    description:
+        'Live testing tool for regular expressions with match highlighting.',
   ),
   DevTool(
     name: 'Base64 Tool',
@@ -89,7 +95,8 @@ const List<DevTool> tools = [
     name: 'URL Encoder/Decoder',
     route: '/url',
     icon: Icons.link,
-    description: 'Fix broken links by encoding or decoding URL query parameters.',
+    description:
+        'Fix broken links by encoding or decoding URL query parameters.',
   ),
   DevTool(
     name: 'Timestamp Converter',
@@ -107,7 +114,8 @@ const List<DevTool> tools = [
     name: 'Diff Workspace',
     route: '/diff',
     icon: Icons.difference,
-    description: 'Compare two text blocks or files side-by-side to see changes.',
+    description:
+        'Compare two text blocks or files side-by-side to see changes.',
   ),
   DevTool(
     name: 'Snippets/Notes',

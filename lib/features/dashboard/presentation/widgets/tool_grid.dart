@@ -35,7 +35,31 @@ class ToolGrid extends StatelessWidget {
                 : width >= AppBreakpoints.compact
                     ? 2
                     : 1;
-        final narrow = AppBreakpoints.isNarrow(width);
+
+        // On mobile/narrow screens or when content wraps significantly,
+        // a fixed aspect ratio or even null mainAxisExtent in a GridView
+        // can lead to overflows if the height is not perfectly managed.
+        // For 100% responsiveness on mobile, we use a Column for 1 column
+        // layout or a Grid with a safe height.
+
+        if (crossAxisCount == 1) {
+          return Column(
+            children: [
+              for (final tool in tools)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                  child: ToolCard(
+                    tool: tool,
+                    favourite: favourites.contains(tool.route),
+                    onTap: () => onOpenTool(tool.route),
+                    onFavouritePressed: () => onToggleFavourite(tool.route),
+                    dense: true,
+                  ),
+                ),
+            ],
+          );
+        }
+
         return GridView.builder(
           shrinkWrap: shrinkWrap,
           physics: physics,
@@ -44,13 +68,9 @@ class ToolGrid extends StatelessWidget {
             crossAxisCount: crossAxisCount,
             crossAxisSpacing: AppSpacing.md,
             mainAxisSpacing: AppSpacing.md,
-            mainAxisExtent: null, // Allow cards to grow based on content
-            childAspectRatio: switch (crossAxisCount) {
-              1 => narrow ? 3.5 : 4.5,
-              2 => 2.5,
-              3 => 2.0,
-              _ => 1.8,
-            },
+            // We use a slightly taller ratio to ensure multi-line text fits
+            // without ever overflowing on Android system fonts.
+            childAspectRatio: crossAxisCount == 2 ? 2.2 : 1.8,
           ),
           itemBuilder: (context, index) {
             final tool = tools[index];
@@ -60,7 +80,7 @@ class ToolGrid extends StatelessWidget {
               favourite: isFav,
               onTap: () => onOpenTool(tool.route),
               onFavouritePressed: () => onToggleFavourite(tool.route),
-              dense: crossAxisCount > 2 || narrow,
+              dense: crossAxisCount > 2,
             );
           },
         );

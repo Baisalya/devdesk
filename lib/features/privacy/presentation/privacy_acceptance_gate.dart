@@ -47,7 +47,8 @@ class _PrivacyAcceptanceGateState extends ConsumerState<PrivacyAcceptanceGate> {
                       excludeSemantics: true,
                       child: IconButton(
                         key: const Key('privacy-policy-back'),
-                        onPressed: () => setState(() => _showFullPolicy = false),
+                        onPressed: () =>
+                            setState(() => _showFullPolicy = false),
                         icon: const Icon(Icons.arrow_back),
                       ),
                     ),
