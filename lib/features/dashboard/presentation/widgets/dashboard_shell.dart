@@ -46,10 +46,9 @@ class DevDeskDashboardShell extends StatelessWidget {
                     color: Theme.of(context).colorScheme.primary,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(
-                    Icons.developer_mode_rounded,
-                    color: Theme.of(context).colorScheme.onPrimary,
-                    size: 18,
+                  child: Image.asset(
+                    'assets/DEVDESK.png',
+                    fit: BoxFit.contain,
                   ),
                 ),
                 const SizedBox(width: 12),
